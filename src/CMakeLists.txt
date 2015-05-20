@@ -1,0 +1,61 @@
+include_directories (${CMAKE_CURRENT_SOURCE_DIR})
+
+if(WIN32)
+  set_source_files_properties(${SRC} PROPERTIES LANGUAGE CXX)
+endif(WIN32)
+
+list(APPEND SRC libk4w2.c misc.c)
+
+list(APPEND SRC driver.c)
+
+if(WITH_V4L2)
+  list(APPEND SRC driver_v4l2.c)
+  add_definitions(-DWITH_V4L2)
+endif(WITH_V4L2)
+
+if(WITH_LIBUSB)
+  include_directories(${LIBUSB_1_INCLUDE_DIRS})
+  list(APPEND SRC driver_libusb.c)
+  add_definitions(-DWITH_LIBUSB)
+endif(WITH_LIBUSB)
+
+list(APPEND SRC decoder.c)
+find_package(TurboJPEG)
+if(TURBOJPEG_FOUND)
+  include_directories(${TURBOJPEG_INCLUDE_DIRS})
+  add_definitions(-DHAVE_TURBOJPEG)
+endif()
+add_definitions(-DK4W2_DATADIR="${CMAKE_CURRENT_SOURCE_DIR}")
+list(APPEND SRC decoder_color_cpu.c decoder_depth_cpu.c)
+
+list(APPEND SRC registration.c)
+
+if (OPENMP_FOUND)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+
+add_library (k4w2 SHARED ${SRC})
+set_target_properties (k4w2 PROPERTIES
+  VERSION ${PROJECT_VER}
+  SOVERSION ${PROJECT_VER}) 
+install (TARGETS k4w2
+  DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}")
+
+target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
+target_link_libraries (k4w2 ${LIBUSB_1_LIBRARIES})
+
+# Install the header files
+install (FILES
+  "../include/libk4w2/libk4w2.h"
+  "../include/libk4w2/kinect2.h" 
+  "../include/libk4w2/decoder.h"
+  "../include/libk4w2/registration.h"
+  DESTINATION ${PROJECT_INCLUDE_INSTALL_DIR})
+
+# PKGCONFIG support
+IF(UNIX AND NOT APPLE)
+  configure_file (libk4w2.pc.in libk4w2.pc @ONLY)
+  install (FILES "${CMAKE_CURRENT_BINARY_DIR}/libk4w2.pc"
+    DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}/pkgconfig")
+ENDIF()

@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@PROJECT_LIBRARY_INSTALL_DIR@
+includedir=${prefix}/@PROJECT_INCLUDE_INSTALL_DIR@
+        
+Name: @CMAKE_PROJECT_NAME@
+Description: Library for Kinect for Windows v2 sensor device.
+Requires: libusb-1.0
+Version: @PROJECT_APIVER@
+Libs: -L${libdir} -lk4w2
+Cflags: -I${includedir}

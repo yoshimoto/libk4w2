@@ -1,0 +1,8 @@
+CPPFLAGS += `pkg-config libk4w2 --cflags`
+LDFLAGS += `pkg-config libk4w2 --libs`
+
+TARGETS = simple
+
+all: $(TARGETS)
+clean:
+	$(RM) -f $(TARGETS) *.o *~
