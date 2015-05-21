@@ -10,7 +10,14 @@
 #ifndef _UAPI__LINUX_KINECT2_H
 #define _UAPI__LINUX_KINECT2_H
 
-#include <linux/types.h> /* __u8 etc */
+#if defined __linux__
+#  include <linux/types.h> /* __u8 etc */
+#else
+#  include <stdint.h>
+   typedef uint8_t __u8;
+   typedef uint16_t __u16;
+   typedef uint32_t __u32;
+#endif
 
 struct kinect2_color_camera_param
 {
@@ -135,9 +142,9 @@ struct kinect2_color_footer {
 #define KINECT2_GET_DEPTH_FOOTER(p) ((struct kinect2_depth_footer*)((char*)(p) + KINECT2_DEPTH_FRAME_SIZE*10 - sizeof(struct kinect2_depth_footer)))
 #define KINECT2_GET_COLOR_FOOTER(ptr,len) (struct kinect2_color_footer*)((char*)ptr + (len) - sizeof(struct kinect2_color_footer))
 
+#if defined __linux__
+
 #include <linux/videodev2.h>
-
-
 struct kinect2_ioctl_req {
     int   len;
     void *ptr;
@@ -147,5 +154,6 @@ struct kinect2_ioctl_req {
 #define VIDIOC_KINECT2_DEPTH_PARAM _IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct kinect2_ioctl_req)
 #define VIDIOC_KINECT2_P0TABLE    _IOWR('V', BASE_VIDIOC_PRIVATE + 2, struct kinect2_ioctl_req)
 
+#endif /* #if defined __linux__ */
 
 #endif /* _UAPI__LINUX_KINECT2_H */
