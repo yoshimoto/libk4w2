@@ -27,7 +27,7 @@ endif(WITH_V4L2)
 
 if(WITH_LIBUSB)
   include_directories(${LIBUSB_1_INCLUDE_DIRS})
-  list(APPEND SRC driver_libusb.c)
+  list(APPEND SRC driver_libusb/driver_libusb.c driver_libusb/usb_dev.c driver_libusb/usb_stream.c)
   add_definitions(-DWITH_LIBUSB)
 endif(WITH_LIBUSB)
 

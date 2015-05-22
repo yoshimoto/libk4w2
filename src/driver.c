@@ -99,6 +99,9 @@ k4w2_open(unsigned int deviceid, unsigned int flags)
 	ctx = allocate_driver(drivers[i].ops, drivers[i].ctx_size);
 	if (!ctx)
 	    continue;
+
+	ctx->begin = (flags & K4W2_DISABLE_COLOR)?DEPTH_CH:COLOR_CH;
+	ctx->end   = (flags & K4W2_DISABLE_DEPTH)?COLOR_CH:DEPTH_CH;
 	if (!ctx->ops->open) {
 	    VERBOSE("internal error; open() is not implemented.");
 	} else if (K4W2_SUCCESS == ctx->ops->open(ctx, deviceid, flags)) {

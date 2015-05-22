@@ -61,7 +61,13 @@ struct k4w2_driver_ctx {
     k4w2_callback_t callback[2]; 
     void *userdata[2];
     const k4w2_driver_ops *ops;
+
+    CHANNEL begin; /* COLOR_CH or DEPTH_CH */
+    CHANNEL end;   /* COLOR_CH or DEPTH_CH */
 };
+
+#define COLOR_ENABLED(ctx) (COLOR_CH == (ctx)->begin)
+#define DEPTH_ENABLED(ctx) (DEPTH_CH == (ctx)->end)
 
 /* === internal structure for kinect2 decoder === */
 
@@ -107,11 +113,20 @@ void k4w2_register_decoder(const char *name,
 #define THREAD_T   pthread_t
 #define THREAD_CREATE(th,func,arg)  pthread_create(th, NULL, func, arg)
 #define THREAD_JOIN(th)             pthread_join(th, NULL)
+
 #define MUTEX_T    pthread_mutex_t
 #define MUTEX_INIT(mu)              pthread_mutex_init(mu, NULL)
 #define MUTEX_INITIALIZER           PTHREAD_MUTEX_INITIALIZER
 #define MUTEX_LOCK(mu)              pthread_mutex_lock(mu)
 #define MUTEX_UNLOCK(mu)            pthread_mutex_unlock(mu)
+#define MUTEX_DESTROY(mu)           pthread_mutex_destroy(mu)
+
+#define COND_T     pthread_cond_t
+#define COND_INIT(cond)             pthread_cond_init(cond, NULL)
+#define COND_TIMEDWAIT(cond,mutex,abstime) pthread_cond_timedwait(cond, mutex, abstime)
+#define COND_SIGNAL(cond)       pthread_cond_signal(cond)
+#define COND_BROADCAST(cond)	pthread_cond_broadcast(cond)
+#define COND_DESTROY(mu)	pthread_cond_destroy(mu)
 
 /* === misc === */
 

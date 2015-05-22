@@ -244,8 +244,6 @@ static void close_camera(Camera *cam)
 typedef struct {
      struct k4w2_driver_ctx k4w2; /* !! must be the first item */
      Camera cam[2];
-     int ch0;
-     int ch1;
      THREAD_T thread;
      volatile unsigned shutdown:1;
 } k4w2_v4l2;
@@ -254,20 +252,14 @@ static int
 k4w2_v4l2_open(k4w2_t ctx, unsigned int deviceid, unsigned int flags)
 {
     k4w2_v4l2 * v4l2 = (k4w2_v4l2 *)ctx;
-    int ch;
+    CHANNEL ch;
     int res = K4W2_ERROR;
 
-    for (ch=0; ch<2; ++ch) {
+    for (ch = COLOR_CH; ch <= DEPTH_CH; ++ch) {
 	v4l2->cam[ch].fd = -1;
     }
 
-    v4l2->ch0 = (flags & K4W2_DISABLE_COLOR)?1:0;
-    v4l2->ch1 = (flags & K4W2_DISABLE_DEPTH)?1:2;
-
-    assert (2 == (v4l2->ch1 - v4l2->ch0) ||
-	    1 == (v4l2->ch1 - v4l2->ch0));
-
-    for (ch = v4l2->ch0; ch < v4l2->ch1; ++ch) {
+    for (ch = v4l2->begin; ch <= v4l2->end; ++ch) {
 
 	char devfile[FILENAME_MAX];
 	snprintf(devfile, sizeof(devfile), "/dev/video%d",
@@ -294,21 +286,21 @@ k4w2_v4l2_thread_loop(void *arg)
 {
     k4w2_v4l2 * v4l2 = (k4w2_v4l2*) arg;
     k4w2_t ctx = (k4w2_t) arg;
-    const int num_fds = v4l2->ch1 - v4l2->ch0;
+    const int num_fds = ctx->end - ctx->begin + 1;
     struct pollfd fds[2];
-    int ch;
-    for (ch = 0; ch < 2; ++ch) {
+    CHANNEL ch;
+    for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	fds[ch].fd = v4l2->cam[ch].fd;
     }
-
     assert(num_fds == 2 || num_fds == 1);
+
     while (!v4l2->shutdown) {
 	int r;
-	for (ch = v4l2->ch0; ch < v4l2->ch1; ++ch) {
+	for (ch = ctx->begin; ch < ctx->end; ++ch) {
 	    fds[ch].events = POLLIN;
 	}
 
-	r = poll(&fds[v4l2->ch0], num_fds, 1000);
+	r = poll(&fds[ctx->begin], num_fds, 1000);
 	switch (r) {
 	case -1:
 	    VERBOSE("select failed");
@@ -317,7 +309,7 @@ k4w2_v4l2_thread_loop(void *arg)
 	    VERBOSE("select timeout");
 	    break;
 	}
-	for (ch = v4l2->ch0; ch < v4l2->ch1; ++ch) {
+	for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	    if (fds[ch].revents)
 		read_frame(&v4l2->cam[ch],
 			   ctx->callback[ch],
@@ -331,7 +323,7 @@ static int
 k4w2_v4l2_start(k4w2_t ctx)
 {
     k4w2_v4l2 * v4l2 = (k4w2_v4l2 *)ctx;
-    int ch;
+    CHANNEL ch;
 
     if (v4l2->thread)
 	return K4W2_ERROR;
@@ -342,7 +334,7 @@ k4w2_v4l2_start(k4w2_t ctx)
 	return K4W2_ERROR;
     }
 
-    for (ch=v4l2->ch0; ch<v4l2->ch1; ++ch) {
+    for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	start_camera(&v4l2->cam[ch]);
     }
     return K4W2_SUCCESS;
@@ -352,16 +344,16 @@ static int
 k4w2_v4l2_stop(k4w2_t ctx)
 {
     k4w2_v4l2 * v4l2 = (k4w2_v4l2 *)ctx;
-    int ch;
+    CHANNEL ch;
 
     if (0== v4l2->thread)
 	return K4W2_ERROR;
-    
+
     v4l2->shutdown = 1;
     THREAD_JOIN(v4l2->thread);
     v4l2->thread = 0;
 
-    for (ch=v4l2->ch0; ch<v4l2->ch1; ++ch) {
+    for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	stop_camera(&v4l2->cam[ch]);
     }
     return K4W2_SUCCESS;
@@ -371,11 +363,11 @@ static int
 k4w2_v4l2_close(k4w2_t ctx)
 {
     k4w2_v4l2 * v4l2 = (k4w2_v4l2 *)ctx;
-    int ch;
+    CHANNEL ch;
 
     k4w2_v4l2_stop(ctx);
     
-    for (ch=v4l2->ch0; ch<v4l2->ch1; ++ch) {
+    for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	close_camera(&v4l2->cam[ch]);
     }
     return K4W2_SUCCESS;
@@ -399,7 +391,7 @@ k4w2_v4l2_read_param(k4w2_t ctx, PARAM_ID id, void *param, int length)
 	    struct kinect2_ioctl_req  req;
 	    req.len = tbl[id].len;
 	    req.ptr = param;
-	    r = ioctl(v4l2->cam[v4l2->ch0].fd, tbl[id].cmd, &req);
+	    r = ioctl(v4l2->cam[ctx->begin].fd, tbl[id].cmd, &req);
 	    if (r) {
 		VERBOSE("ioctl() failed; %s", strerror(errno));
 		r = K4W2_ERROR;
