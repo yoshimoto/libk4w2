@@ -55,7 +55,7 @@ allocate_driver(const k4w2_driver_ops *ops, int ctx_size)
 
     assert((size_t)ctx_size >= sizeof(k4w2_t));
 
-    memset(ctx, 0, sizeof(ctx_size));
+    memset(ctx, 0, ctx_size);
     ctx->ops = ops;
 
     return ctx;
@@ -93,7 +93,7 @@ k4w2_open(unsigned int deviceid, unsigned int flags)
 	firsttime = 0;
     }
 
-    for (i = 0; i<num_drivers; ++i) {
+    for (i = 0; i < num_drivers; ++i) {
 	assert(drivers[i].ops);
 	assert(drivers[i].ctx_size >= 0);
 	ctx = allocate_driver(drivers[i].ops, drivers[i].ctx_size);
@@ -104,11 +104,12 @@ k4w2_open(unsigned int deviceid, unsigned int flags)
 	ctx->end   = (flags & K4W2_DISABLE_DEPTH)?COLOR_CH:DEPTH_CH;
 	if (!ctx->ops->open) {
 	    VERBOSE("internal error; open() is not implemented.");
+	    free(ctx);
+	    ctx = NULL;
 	} else if (K4W2_SUCCESS == ctx->ops->open(ctx, deviceid, flags)) {
 	    VERBOSE("%s driver is selected.", drivers[i].name);
 	    goto exit;
-	}
-
+	} 
 	free(ctx);
 	ctx = NULL;
     }

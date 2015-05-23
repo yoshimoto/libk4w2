@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <string.h> /* memset() */
 
+#define TRANSFER_TIMEOUT 0
 
 static const char *
 get_stream_type_str(unsigned char type)
@@ -53,14 +54,13 @@ static void
 usbmisc_stream_callback(struct libusb_transfer *xfer)
 {
     usb_stream_t strm = (usb_stream_t)xfer->user_data;
-    //VERBOSE("cb; %d", strm->shutdown);
-    assert( !strm->shutdown );
 
     int r;
     switch(xfer->status) {
     case LIBUSB_TRANSFER_COMPLETED: /* Normal operation. */
 	if (strm->callback)
 	    strm->callback(xfer, strm->callback_arg);
+    case LIBUSB_TRANSFER_TIMED_OUT: /* If timed-out, callback is skipped */
 	if (!strm->shutdown) {
 	    r = libusb_submit_transfer(xfer);
 	    if (LIBUSB_SUCCESS != r) {
@@ -122,6 +122,7 @@ wait_for_stopped(usb_stream_t strm)
     deadline.tv_sec += 3;
     r = 0;
     while (strm->num_inactive_xfers < strm->num_xfers && !r) {
+	VERBOSE("%d/%d", strm->num_inactive_xfers, strm->num_xfers);
 	r = COND_TIMEDWAIT(&strm->cond_inactive, &strm->lock, &deadline);
     }
     MUTEX_UNLOCK(&strm->lock);
@@ -189,7 +190,7 @@ usb_stream_open(libusb_device_handle *handle,
 				     num_pkts,
 				     usbmisc_stream_callback,
 				     strm,
-				     0 /* no timeout */);
+				     TRANSFER_TIMEOUT);
 	    libusb_set_iso_packet_lengths(strm->xfers[i], pkt_length);
 	    break;
 	case LIBUSB_TRANSFER_TYPE_BULK:
@@ -203,7 +204,7 @@ usb_stream_open(libusb_device_handle *handle,
 				      pkt_length,
 				      usbmisc_stream_callback,
 				      strm,
-				      0 /* no timeout */);
+				      TRANSFER_TIMEOUT);
 	    break;
 	}
 
@@ -244,27 +245,46 @@ usb_stream_start(usb_stream_t strm)
 int
 usb_stream_stop(usb_stream_t strm)
 {
+    int i;
     CHECK_STREAM_CTX(strm);
 
     strm->shutdown = 1;
+
     return 0;
 }
 
 int
 usb_stream_close(usb_stream_t *pointer)
 {
+    usb_stream_t strm;
+    int i;
+
     if (!pointer)
 	return -1;
+
     CHECK_STREAM_CTX(*pointer);
+    strm = *pointer;
 
-    usb_stream_t strm = *pointer;
-    usb_stream_stop(strm);
+    if (!strm->shutdown)
+	usb_stream_stop(strm);
 
-    wait_for_stopped(strm);
+    for (i = 0; i < strm->num_xfers; i++) {
+	int res = libusb_cancel_transfer(strm->xfers[i]);
+	switch (res) {
+	case LIBUSB_SUCCESS: /* to be canceled */
+	case LIBUSB_ERROR_NOT_FOUND: /* stopped already */
+	    break;
+	default:
+	    VERBOSE("libusb_cancel_transfer(%d/%d) returns %s",
+		    i, strm->num_xfers, libusb_error_name(res));
+	    ++strm->num_inactive_xfers;
+	}
+    }
     
+    wait_for_stopped(strm);
+
     if (strm->xfers) {
-	int i;
-	for (i = 0; i < strm->num_xfers; i++)
+	for (i = 0; i < strm->num_xfers; i++) 
 	    libusb_free_transfer(strm->xfers[i]);
 
 	free(strm->xfers);

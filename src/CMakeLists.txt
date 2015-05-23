@@ -42,6 +42,8 @@ list(APPEND SRC decoder_color_cpu.c decoder_depth_cpu.c)
 
 list(APPEND SRC registration.c)
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -O0 -Wno-unused-variable")
+
 if (OPENMP_FOUND)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -50,12 +52,18 @@ endif()
 add_library (k4w2 SHARED ${SRC})
 set_target_properties (k4w2 PROPERTIES
   VERSION ${PROJECT_VER}
-  SOVERSION ${PROJECT_VER}) 
+  SOVERSION ${PROJECT_VER})
+if(WITH_LIBUSB)
+  target_link_libraries (k4w2 ${LIBUSB_1_LIBRARIES})
+endif()
+if(TURBOJPEG_FOUND)
+  target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
+endif()
+target_link_libraries (k4w2 "m")
+
 install (TARGETS k4w2
   DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}")
 
-target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
-target_link_libraries (k4w2 ${LIBUSB_1_LIBRARIES})
 
 # Install the header files
 install (FILES

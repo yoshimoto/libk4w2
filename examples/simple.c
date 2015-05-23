@@ -47,8 +47,8 @@ main()
     /* Starts kinect device */
     k4w2_start(ctx);
 
-    /* Waits for 3 seconds */
-    struct timespec req = {3,0};
+    /* Waits for 10 seconds */
+    struct timespec req = {10,0};
     nanosleep(&req, NULL);
 
     

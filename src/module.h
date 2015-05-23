@@ -132,6 +132,11 @@ void k4w2_register_decoder(const char *name,
 
 extern int k4w2_debug_level;
 #define OUTPUT(LV, fmt, ...) do { if (k4w2_debug_level >= (LV)) fprintf(stderr, __FILE__ ":%d " fmt "\n", __LINE__, ## __VA_ARGS__); } while(0)
+#if _NDEBUG
+#  define TRACE(fmt,...) (void)0
+#else
+#  define TRACE(fmt,...) OUTPUT(2, fmt, ## __VA_ARGS__)
+#endif
 #define VERBOSE(fmt,...) OUTPUT(1, fmt, ## __VA_ARGS__)
 #define WARNING(fmt,...) OUTPUT(0, fmt, ## __VA_ARGS__)
 #define ABORT(fmt,...) do { OUTPUT(0,fmt, ## __VA_ARGS__); exit(EXIT_FAILURE); } while (0)

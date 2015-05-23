@@ -3,10 +3,9 @@
  * @author Hiromasa YOSHIMOTO
  * @date   Tue May 12 15:32:28 2015
  * 
- * @brief  implementation of v4l2-based driver
+ * @brief  video for linux 2 (v4l2) backend for libk4w2
  * 
  * This driver works only with gspca/kinect2 sensor driver on linux.
- * 
  */
 
 #if ! defined WITH_V4L2
@@ -39,7 +38,7 @@ typedef struct {
 
 typedef struct {
      int              fd;
-     Buffer          *bufs;
+     Buffer          *buf;
      unsigned int     num_bufs;
 } Camera;
 
@@ -48,8 +47,7 @@ static int open_camera(Camera *cam, const char *dev_name)
      struct stat st;
 
      if (-1 == stat(dev_name, &st)) {
-	  VERBOSE("Cannot identify '%s': %d, %s\n",
-		  dev_name, errno, strerror(errno));
+	  VERBOSE("Cannot identify '%s'; %s", dev_name, strerror(errno));
 	  return K4W2_ERROR;
      }
 
@@ -107,7 +105,7 @@ static int read_frame(Camera *cam, k4w2_callback_t callback, void *userdata)
     assert(buf.index < cam->num_bufs);
 
     if (callback)
-	callback(cam->bufs[buf.index].start, buf.bytesused, userdata);
+	callback(cam->buf[buf.index].start, buf.bytesused, userdata);
 
     if (-1 == xioctl(cam->fd, VIDIOC_QBUF, &buf))
 	ABORT("VIDIOC_QBUF");
@@ -152,16 +150,16 @@ static int start_camera(Camera *cam)
 
 static void unmap_camera(Camera *cam)
 {
-    if (cam->bufs) {
+    if (cam->buf) {
 	unsigned int i;
 	for (i = 0; i < cam->num_bufs; ++i) {
-	    if (MAP_FAILED == cam->bufs[i].start)
+	    if (MAP_FAILED == cam->buf[i].start)
 		continue;
-	    if (-1 == munmap(cam->bufs[i].start, cam->bufs[i].length))
+	    if (-1 == munmap(cam->buf[i].start, cam->buf[i].length))
 		ABORT("munmap");
 	}
-	free(cam->bufs);
-	cam->bufs = NULL;
+	free(cam->buf);
+	cam->buf = NULL;
     }
 }
 
@@ -187,15 +185,15 @@ static int mmap_camera(Camera *cam, int num_buf)
 	goto err;
     }
 
-    cam->bufs = (Buffer*)calloc(req.count, sizeof(*cam->bufs));
+    cam->buf = (Buffer*)calloc(req.count, sizeof(*cam->buf));
 
-    if (!cam->bufs) {
+    if (!cam->buf) {
 	VERBOSE("Out of memory");
 	goto err;
     }
 
     for (i = 0; i < cam->num_bufs; ++i) {
-	cam->bufs[i].start = MAP_FAILED;
+	cam->buf[i].start = MAP_FAILED;
     }
      
     for (i = 0; i < cam->num_bufs; ++i) {
@@ -214,14 +212,14 @@ static int mmap_camera(Camera *cam, int num_buf)
 
 
 	//VERBOSE("buf.length: %d", buf.length);
-	cam->bufs[i].length = buf.length;
-	cam->bufs[i].start = mmap(NULL /* start anywhere */,
+	cam->buf[i].length = buf.length;
+	cam->buf[i].start = mmap(NULL /* start anywhere */,
 				  buf.length,
 				  PROT_READ | PROT_WRITE /* required */,
 				  MAP_SHARED /* recommended */,
 				  cam->fd, buf.m.offset);
 
-	if (MAP_FAILED == cam->bufs[i].start) {
+	if (MAP_FAILED == cam->buf[i].start) {
 	    VERBOSE("mmap failed");
 	    goto err;
 	}
@@ -259,7 +257,7 @@ k4w2_v4l2_open(k4w2_t ctx, unsigned int deviceid, unsigned int flags)
 	v4l2->cam[ch].fd = -1;
     }
 
-    for (ch = v4l2->begin; ch <= v4l2->end; ++ch) {
+    for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 
 	char devfile[FILENAME_MAX];
 	snprintf(devfile, sizeof(devfile), "/dev/video%d",
