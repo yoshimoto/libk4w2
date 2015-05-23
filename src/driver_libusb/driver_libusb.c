@@ -548,8 +548,8 @@ k4w2_libusb_open(k4w2_t ctx, unsigned int device_id, unsigned int flags)
 	    goto exit;
 	}
 	VERBOSE("iso packet size is %d bytes", max_iso_packet_size);
-	const int num_pkts  = 10;
-	const int num_xfers = 32;
+	const int num_pkts  = 32;
+	const int num_xfers = 8;
 
 	usb->stream[1] = usb_stream_open(usb->handle,
 					 LIBUSB_TRANSFER_TYPE_ISOCHRONOUS,
