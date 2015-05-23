@@ -26,6 +26,7 @@ Windows (not tested yet because I have no windows env.)
 $ mkdir build
 $ cd
 $ cmake ..
+$ make
 ```
 
 ```
