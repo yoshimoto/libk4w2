@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (libk4w2)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g")
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/)
 include (FindOS)
 include (SetupDirectories)

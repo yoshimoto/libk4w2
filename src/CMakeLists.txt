@@ -44,8 +44,6 @@ list(APPEND SRC decoder_color_cpu.c decoder_depth_cpu.c)
 
 list(APPEND SRC registration.c)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -O0 -Wno-unused-variable")
-
 if (OPENMP_FOUND)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
