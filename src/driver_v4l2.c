@@ -294,7 +294,7 @@ k4w2_v4l2_thread_loop(void *arg)
 
     while (!v4l2->shutdown) {
 	int r;
-	for (ch = ctx->begin; ch < ctx->end; ++ch) {
+	for (ch = ctx->begin; ch <= ctx->end; ++ch) {
 	    fds[ch].events = POLLIN;
 	}
 
