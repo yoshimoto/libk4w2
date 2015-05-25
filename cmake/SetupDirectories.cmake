@@ -1,6 +1,6 @@
 # Default installation directory, based on operating system
 IF (PROJECT_OS_WIN)
-    SET (CMAKE_INSTALL_PREFIX "C:\\Program Files\\libfreenect" CACHE PATH "Installation directory")
+    SET (CMAKE_INSTALL_PREFIX "C:\\Program Files\\libk4w2" CACHE PATH "Installation directory")
 ELSE (PROJECT_OS_WIN)
     SET (CMAKE_INSTALL_PREFIX "/usr/local" CACHE PATH "Installation directory")
 ENDIF (PROJECT_OS_WIN)

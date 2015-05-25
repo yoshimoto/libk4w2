@@ -16,7 +16,7 @@ set (PROJECT_VER_PATCH 0)
 set (PROJECT_VER 
   "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 
-find_package(libusb-1.0 REQUIRED)
+find_package(libusb-1.0)
 
 k4w2_option(WITH_V4L2   "enable v4l2 driver"       PROJECT_OS_LINUX)
 k4w2_option(WITH_LIBUSB "enable libusb-1.0 driver" LIBUSB_1_FOUND)
@@ -38,4 +38,15 @@ if(BUILD_EXAMPLES)
   add_subdirectory (examples)
 endif()
 
+status(" ***** ")
+status("")
+status("       v4l2 driver : " PROJECT_OS_LINUX THEN On ELSE Off)
+status(" libusb-1.0 driver : " LIBUSB_1_FOUND   THEN On ELSE Off)
+status("")
+status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
+status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
+status("")
+status("      Install path : ${CMAKE_INSTALL_PREFIX}")
+status("")
+status(" ***** ")
 
