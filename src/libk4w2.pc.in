@@ -5,7 +5,7 @@ includedir=${prefix}/@PROJECT_INCLUDE_INSTALL_DIR@
         
 Name: @CMAKE_PROJECT_NAME@
 Description: Library for Kinect for Windows v2 sensor device.
-Requires: libusb-1.0
-Version: @PROJECT_APIVER@
+Requires: @PKGCONFIG_REQUIRES@
+Version: @PROJECT_VER@
 Libs: -L${libdir} -lk4w2
 Cflags: -I${includedir}

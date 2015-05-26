@@ -73,8 +73,13 @@ install (FILES
   "../include/libk4w2/registration.h"
   DESTINATION ${PROJECT_INCLUDE_INSTALL_DIR})
 
+
 # PKGCONFIG support
 IF(UNIX AND NOT APPLE)
+  if(LIBUSB_1_FOUND)
+    set(PKGCONFIG_REQUIRES)
+    list(APPEND PKGCONFIG_REQUIRES libusb-1.0)
+  endif()
   configure_file (libk4w2.pc.in libk4w2.pc @ONLY)
   install (FILES "${CMAKE_CURRENT_BINARY_DIR}/libk4w2.pc"
     DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}/pkgconfig")
