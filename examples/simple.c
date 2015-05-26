@@ -18,7 +18,7 @@
 
 void color_cb(const void *buffer, int length, void *userdata)
 {
-    const struct kinect2_color_header *h = (const struct kinect2_color_header*)buffer;
+    /* const struct kinect2_color_header *h = (const struct kinect2_color_header*)buffer; */
     const struct kinect2_color_footer *f = KINECT2_GET_COLOR_FOOTER(buffer, length);
 
     fprintf(stderr, "color: sequence:%10d timestamp:%10d\n", f->sequence, f->timestamp);
