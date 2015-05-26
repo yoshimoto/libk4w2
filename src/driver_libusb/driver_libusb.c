@@ -494,7 +494,6 @@ static int
 k4w2_libusb_open(k4w2_t ctx, unsigned int device_id, unsigned int flags)
 {
     k4w2_libusb * usb = (k4w2_libusb *)ctx;
-    int i;
     CHANNEL ch;
     int attempt_reset = 1; /* !0 enables attempt_reset workaround */
     int current;
@@ -631,12 +630,14 @@ k4w2_libusb_close(k4w2_t ctx)
     for (ch = ctx->begin; ch <= ctx->end; ++ch)
 	usb_stream_close(&usb->stream[ch]);
 
-    PERMISSIVE( libusb_release_interface(usb->handle,
-					 ControlAndRgbInterfaceId) );
-    if (DEPTH_ENABLED(ctx)) {
-	PERMISSIVE( libusb_set_interface_alt_setting(usb->handle,
-						     IrInterfaceId, 0) );
-	PERMISSIVE( libusb_release_interface(usb->handle, IrInterfaceId) );
+    if (usb->handle) {
+	PERMISSIVE( libusb_release_interface(usb->handle,
+					     ControlAndRgbInterfaceId) );
+	if (DEPTH_ENABLED(ctx)) {
+	    PERMISSIVE( libusb_set_interface_alt_setting(usb->handle,
+							 IrInterfaceId, 0) );
+	    PERMISSIVE( libusb_release_interface(usb->handle, IrInterfaceId) );
+	}
     }
 
     if (usb->thread) {
