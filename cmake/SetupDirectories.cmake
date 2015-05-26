@@ -12,9 +12,9 @@ STRING (TOLOWER ${PROJECT_NAME} projectNameLower)
 SET (PROJECT_INCLUDE_INSTALL_DIR "include/${projectNameLower}")
 
 IF (PROJECT_PROC_64BIT)
-    SET (LIB_SUFFIX "64" CACHE STRING "Suffix for library installation directory")
-ELSE (PROJECT_PROC_64BIT)
     SET (LIB_SUFFIX "" CACHE STRING "Suffix for library installation directory")
+ELSE (PROJECT_PROC_64BIT)
+    SET (LIB_SUFFIX "32" CACHE STRING "Suffix for library installation directory")
 ENDIF (PROJECT_PROC_64BIT)
 
 SET (PROJECT_LIBRARY_INSTALL_DIR "lib${LIB_SUFFIX}")
