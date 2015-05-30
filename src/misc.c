@@ -235,16 +235,18 @@ k4w2_camera_params_save(struct kinect2_color_camera_param *color,
 
     r = k4w2_mkdir_p(dirname);
     if (K4W2_SUCCESS != r) {
-	return r;
+	goto exit;
     }
 
+    r = K4W2_SUCCESS;
     for (i = 0; i<sizeof(e)/sizeof(*e); ++i) {
-	r = k4w2_save(e[i].ptr, e[i].size, dirname, e[i].filename);
-	if (K4W2_SUCCESS != r) {
+	if (K4W2_SUCCESS != k4w2_save(e[i].ptr, e[i].size, dirname, e[i].filename)) {
 	    VERBOSE("failed to save(%s/%s)", dirname, e[i].filename);
+	    r = K4W2_ERROR;
 	}
     }
-    return K4W2_SUCCESS;
+exit:
+    return r;
 }
 
 /*
