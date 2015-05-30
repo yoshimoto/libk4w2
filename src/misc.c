@@ -126,7 +126,7 @@ k4w2_save(void *buf, size_t bufsize, const char *dirname, const char *filename)
 
     snprintf(path, sizeof(path), "%s/%s", dirname, filename);
 
-    fd = open(filename, O_CREAT);
+    fd = open(path, O_CREAT|O_WRONLY, 0644);
     if (-1 == fd) {
 	VERBOSE("open(%s) failed; %s", path, strerror(errno));
     } else {
@@ -134,7 +134,7 @@ k4w2_save(void *buf, size_t bufsize, const char *dirname, const char *filename)
 	if (-1 == done) {
 	    VERBOSE("write(%s) failed; %s", path, strerror(errno));
 	} else if ((size_t)done != bufsize) {
-	    VERBOSE("save(%s) failed?", filename);
+	    VERBOSE("save(%s) failed?", path);
 	}
 	close(fd);
     }
