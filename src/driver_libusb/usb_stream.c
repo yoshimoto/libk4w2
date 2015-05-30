@@ -245,7 +245,6 @@ usb_stream_start(usb_stream_t strm)
 int
 usb_stream_stop(usb_stream_t strm)
 {
-    int i;
     CHECK_STREAM_CTX(strm);
 
     strm->shutdown = 1;
