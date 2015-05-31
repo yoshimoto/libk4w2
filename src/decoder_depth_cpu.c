@@ -33,8 +33,8 @@ typedef struct {
 	float min_dealias_confidence;
 	float max_dealias_confidence;
 
-	float min_depth;
-	float max_depth;
+//	float min_depth;
+//	float max_depth;
     } params;
 
     float trig_table0[512*424][6];
@@ -75,8 +75,8 @@ set_params(struct parameters *p)
     p->min_dealias_confidence = 0.3490659f;
     p->max_dealias_confidence = 0.6108653f;
 
-    p->min_depth = 500.0f;
-    p->max_depth = 4500.0f;
+//    p->min_depth = 500.0f;
+//    p->max_depth = 4500.0f;
 }
 
 static inline int

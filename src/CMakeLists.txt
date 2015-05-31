@@ -49,6 +49,10 @@ if (OPENMP_FOUND)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
+if (OpenCL_FOUND)
+list(APPEND SRC decoder_cl/depth_cl.cpp)
+endif()
+
 add_library (k4w2 SHARED ${SRC})
 set_target_properties (k4w2 PROPERTIES
   VERSION ${PROJECT_VER}
@@ -58,6 +62,10 @@ if(WITH_LIBUSB)
 endif()
 if(TURBOJPEG_FOUND)
   target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
+endif()
+if(OpenCL_FOUND)
+include_directories(${OPENCL_INCLUDE_DIRS})
+  target_link_libraries (k4w2 ${OpenCL_LIBRARIES})
 endif()
 target_link_libraries (k4w2 "m")
 

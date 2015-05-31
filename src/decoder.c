@@ -61,6 +61,7 @@ k4w2_decoder_open(unsigned int type, int num_slot)
     MUTEX_LOCK(&decoder_mutex);
 
     if (firsttime) {
+	INITIALIZE_MODULE(k4w2_decoder_depth_ocl_init);
 	INITIALIZE_MODULE(k4w2_decoder_depth_cpu_init);
 	INITIALIZE_MODULE(k4w2_decoder_color_cpu_init);
 

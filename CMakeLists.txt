@@ -7,6 +7,7 @@ include (SetupDirectories)
 include (libk4w2util)
 include (FindPkgConfig)
 include (FindOpenMP)
+include (FindOpenCL)
 
 
 #
@@ -32,8 +33,16 @@ endif(WIN32)
 #
 # Compiler options
 #
-find_package(OpenMP)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g")
+
+# Library version
+#
+set (PROJECT_VER_MAJOR 0)
+set (PROJECT_VER_MINOR 0)
+set (PROJECT_VER_PATCH 0)
+set (PROJECT_VER 
+  "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+
 
 # Libary version
 #
@@ -73,6 +82,7 @@ status("       v4l2 driver : " WITH_V4L2     THEN On ELSE Off)
 status(" libusb-1.0 driver : " WITH_LIBUSB   THEN On ELSE Off)
 status("")
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
+status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
 status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
 status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
