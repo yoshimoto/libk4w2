@@ -27,6 +27,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <assert.h>
 
 #if defined(WIN32)
 #define _USE_MATH_DEFINES
@@ -75,10 +76,10 @@ public:
     bool setup(cl::Context context,
 	       const parameters &params,
 	       size_t num_slot);
-    bool set_params(cl::Context context,
-		    const kinect2_color_camera_param * color,
-		    const kinect2_depth_camera_param * depth,
-		    const kinect2_p0table * p0table);
+    int set_params(cl::Context context,
+		   const kinect2_color_camera_param * color,
+		   const kinect2_depth_camera_param * depth,
+		   const kinect2_p0table * p0table);
 
     bool request(cl::CommandQueue queue,
 		 int slot, const void *ptr, int length);
@@ -187,6 +188,7 @@ generateOptions(const parameters &params, std::string *options)
      std::ostringstream oss;
      oss.precision(16);
      oss << std::scientific;
+     oss << " -D KINECT2_DEPTH_FRAME_SIZE=" << KINECT2_DEPTH_FRAME_SIZE;
      oss << " -D BFI_BITMASK=" << "0x180";
 
      oss << " -D AB_MULTIPLIER=" << params.ab_multiplier << "f";
@@ -260,30 +262,30 @@ DecoderCL::setup(cl::Context context,
 
     const int MAX_SOURCECODE_SIZE = 20 * 1024;
     char* sourcecode = new char [MAX_SOURCECODE_SIZE];
+    size_t sourcelength;
     int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
 				 "depth_kernel.cl",
-				 sourcecode, MAX_SOURCECODE_SIZE);
+				 sourcecode, MAX_SOURCECODE_SIZE,
+				 &sourcelength);
     if (K4W2_SUCCESS != r) {
 	ABORT("failed to load ");
     }
-     
+
     cl_int err = CL_SUCCESS;
     try
     {
 	std::string options;
 	generateOptions(params, &options);
 
-
 	cl::Program::Sources src(1,
 				 std::make_pair(sourcecode,
-						strlen(sourcecode)));
+						sourcelength));
 	program = cl::Program(context, src);
 	program.build(options.c_str());
 
 
 	//Read only
-	buf_packet_size = ((IMAGE_SIZE * 11) / 16) * 10 * sizeof(cl_ushort);
-
+	buf_packet_size = KINECT2_DEPTH_FRAME_SIZE * 10;
 
 	buf_packet = cl::Buffer(context, CL_READ_ONLY_CACHE,
 				buf_packet_size, NULL, &err);
@@ -361,7 +363,7 @@ DecoderCL::setup(cl::Context context,
     return true;
 }
 
-bool
+int
 DecoderCL::set_params(cl::Context context,
 		      const kinect2_color_camera_param * color,
 		      const kinect2_depth_camera_param * depth,
@@ -376,10 +378,13 @@ DecoderCL::set_params(cl::Context context,
 
     cl_int err;
     {
+	size_t actual_size;
 	int16_t lut[2048];
 	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "11to16.bin", lut, sizeof(lut));
-	if (K4W2_SUCCESS != r)
+				     "11to16.bin",
+				     lut, sizeof(lut),
+				     &actual_size);
+	if (K4W2_SUCCESS != r || sizeof(lut) != actual_size)
 	    return r;
 	buf_lut11to16 = cl::Buffer(context, CL_READ_ONLY_CACHE,
 				   sizeof(lut), lut, &err);
@@ -391,12 +396,15 @@ DecoderCL::set_params(cl::Context context,
 	buf_p0_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
 				  sizeof(tmp), tmp, &err);
     }
-	  
+
     {
 	cl_float x_table[IMAGE_SIZE];
+	size_t actual_size;
 	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "xTable.bin", x_table, sizeof(x_table));
-	if (K4W2_SUCCESS != r)
+				     "xTable.bin",
+				     x_table, sizeof(x_table),
+				     &actual_size);
+	if (K4W2_SUCCESS != r || sizeof(x_table) != actual_size)
 	    return r;
 	buf_x_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
 				 sizeof(x_table), x_table, &err);
@@ -404,9 +412,12 @@ DecoderCL::set_params(cl::Context context,
 
     {
 	cl_float z_table[IMAGE_SIZE];
+	size_t actual_size;
 	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "zTable.bin", z_table, sizeof(z_table));
-	if (K4W2_SUCCESS != r)
+				     "zTable.bin",
+				     z_table, sizeof(z_table),
+				     &actual_size);
+	if (K4W2_SUCCESS != r || sizeof(z_table) != actual_size)
 	    return r;     
 	buf_z_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
 				 sizeof(z_table), z_table, &err);
@@ -419,6 +430,9 @@ bool
 DecoderCL::request(cl::CommandQueue queue,
 		   int slot, const void *ptr, int length)
 {
+    VERBOSE("enter; slot: %d", slot);
+    assert( KINECT2_DEPTH_FRAME_SIZE*10 == length);
+
     Slot& s = m_slot[slot];
     try
     {
@@ -432,9 +446,14 @@ DecoderCL::request(cl::CommandQueue queue,
 				   &s.eventPPS1, &s.eventPPS2[0]);
 
     }
-    catch(const cl::Error &err)
-    {
-	std::cerr << "ERROR: " << err.what() << " (" << err.err() << ")" << std::endl;
+    catch (const cl::Error & err) {
+	std::cerr 
+            << "ERROR: "
+            << err.what()
+            << "("
+            << err.err()
+            << ")"
+            << std::endl;
 	return false;
     }
     return true;
@@ -443,23 +462,32 @@ DecoderCL::request(cl::CommandQueue queue,
 bool
 DecoderCL::fetch(cl::CommandQueue queue, int slot, void *dst, int dst_length)
 {
+    VERBOSE("enter; slot %d", slot);
+
     Slot& s = m_slot[slot];
     try
     {
-	queue.enqueueReadBuffer(buf_ir, CL_FALSE, 0,
-				buf_ir_size, (char*)dst + buf_depth_size,
+	VERBOSE("ir");
+	queue.enqueueReadBuffer(buf_ir, CL_FALSE,
+				0, buf_ir_size, (char*)dst + buf_depth_size,
 				&s.eventPPS1, &s.event0);
-
-	queue.enqueueReadBuffer(buf_depth, CL_FALSE, 0,
-				buf_depth_size, dst,
+	VERBOSE("depth");
+	queue.enqueueReadBuffer(buf_depth, CL_FALSE,
+				0, buf_depth_size, dst,
 				&s.eventPPS2, &s.event1);
+	VERBOSE("done");
 
 	s.event0.wait();
 	s.event1.wait();
     }
-    catch(const cl::Error &err)
-    {
-	std::cerr << "ERROR: " << err.what() << " (" << err.err() << ")" << std::endl;
+    catch (const cl::Error & err) {
+	std::cerr 
+            << "ERROR: "
+            << err.what()
+            << "("
+            << err.err()
+            << ")"
+            << std::endl;
 	return false;
     }
     return true;
@@ -504,12 +532,11 @@ depth_ocl_open(k4w2_decoder_t ctx, unsigned int type)
 	    { CL_CONTEXT_PLATFORM,
 	      (cl_context_properties)(platforms[0])(),
 	      0};
-        d->context = cl::Context(CL_DEVICE_TYPE_CPU, properties); 
+        d->context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
 
 	std::vector<cl::Device> devices = d->context.getInfo<CL_CONTEXT_DEVICES>();
 	d->queue   = cl::CommandQueue(d->context, devices[0], 0, &err);
     }
-
     catch (cl::Error err) {
 	std::cerr 
             << "ERROR: "
@@ -539,8 +566,7 @@ depth_ocl_set_params(k4w2_decoder_t ctx,
 		     struct kinect2_p0table * p0table)
 {
     depth_ocl * d = (depth_ocl *)ctx;
-    bool r = d->dcl.set_params(d->context, color, depth, p0table);
-    return r?K4W2_SUCCESS:K4W2_ERROR;
+    return d->dcl.set_params(d->context, color, depth, p0table);
 }
 
 static int

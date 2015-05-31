@@ -30,7 +30,8 @@
 
 float decodePixelMeasurement(global const ushort *data, global const short *lut11to16, const uint sub, const uint x, const uint y)
 {
-    uint row_idx = (424 * sub + (y < 212 ? y + 212 : 423 - y)) * 352;
+	/*    uint row_idx = (424 * sub + (y < 212 ? y + 212 : 423 - y)) * 352;*/
+    uint row_idx = KINECT2_DEPTH_FRAME_SIZE*sub + (y < 212 ? y + 212 : 423 - y) * 352;
     uint idx = (((x >> 2) + ((x << 7) & BFI_BITMASK)) * 11) & (uint)0xffffffff;
 
     uint col_idx = idx >> 4;

@@ -14,8 +14,9 @@
 #include "libk4w2/libk4w2.h"
 #include "libk4w2/decoder.h"
 
-#include <stdio.h>  /* fprintf() */
-#include <string.h> /* memset() */
+#include <stdio.h>  /* for fprintf() */
+#include <string.h> /* for memset() */
+#include <stdlib.h> /* for exit() */
 
 #ifdef __cplusplus
 #  define EXTERN_C_BEGIN extern "C" {
@@ -152,9 +153,10 @@ void free_bufs(unsigned char **buf);
 /* === file i/o === */
 int k4w2_search_and_load(const char *searchpath[], size_t num_searchpath,
 			 const char *filename,
-			 void *buf, size_t bufsize);
+			 void *buf, size_t max_bufsize,
+			 size_t *actual_size);
 int k4w2_load(const char *dirname, const char *filename,
-	      void *buf, size_t bufsize);
+	      void *buf, size_t max_bufsize, size_t *actual_size);
 int k4w2_save(void *buf, size_t size, const char *dirname,
 	      const char *filename);
 

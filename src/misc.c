@@ -69,18 +69,23 @@ free_bufs(unsigned char **buf)
  * @param num_searchpath 
  * @param filename 
  * @param buf 
- * @param bufsize 
+ * @param max_bufsize 
+ * @param actual_bufsize 
  * 
  * @retval K4W2_SUCCESS  success
  */
 int
 k4w2_search_and_load(const char *searchpath[], size_t num_searchpath,
-		     const char *filename, void *buf, size_t bufsize)
+		     const char *filename, void *buf,
+		     size_t max_bufsize,
+		     size_t *actual_bufsize)
 {
     size_t i;
     int r = K4W2_ERROR;
     for (i = 0; i<num_searchpath; ++i) {
-	r = k4w2_load(searchpath[i], filename, buf, bufsize);
+	r = k4w2_load(searchpath[i], filename,
+		      buf, max_bufsize,
+		      actual_bufsize);
 	if (K4W2_SUCCESS == r) {
 	    VERBOSE("%s/%s was loaded successfully", searchpath[i], filename);
 	    break;
@@ -90,13 +95,16 @@ k4w2_search_and_load(const char *searchpath[], size_t num_searchpath,
 }
 
 int
-k4w2_load(const char *dirname, const char *filename, void *buf, size_t bufsize)
+k4w2_load(const char *dirname, const char *filename,
+	  void *buf, size_t max_bufsize,
+	  size_t *actual_bufsize)
 {
     int fd;
     ssize_t done = 0;
     char path[FILENAME_MAX];
 
     snprintf(path, sizeof(path), "%s/%s", dirname, filename);
+    VERBOSE("trying to open(%s)", path);
     if (access(path, F_OK)) {
 	/* no such file */
 	return K4W2_ERROR;
@@ -106,15 +114,16 @@ k4w2_load(const char *dirname, const char *filename, void *buf, size_t bufsize)
     if (-1 == fd) {
 	VERBOSE("open(%s) failed; %s", path, strerror(errno));
     } else {
-	done = read(fd, buf, bufsize);
+	done = read(fd, buf, max_bufsize);
 	if (-1 == done) {
 	    VERBOSE("read(%s) failed; %s", path, strerror(errno));
-	} else if ((size_t)done != bufsize) {
-	    VERBOSE("load(%s) failed?", path);
+	} else {
+	    if (actual_bufsize)
+		*actual_bufsize = done;
 	}
 	close(fd);
     }
-    return (done > 0 && (size_t)done == bufsize)?K4W2_SUCCESS:K4W2_ERROR;
+    return (done >= 0)?K4W2_SUCCESS:K4W2_ERROR;
 }
 
 int
@@ -170,9 +179,11 @@ k4w2_camera_params_load(const char *dirname,
     };
     size_t i;
     for (i = 0; i<sizeof(e)/sizeof(*e); ++i) {
+	size_t actual_size;
 	int r;
-	r = k4w2_load(dirname, e[i].filename, e[i].ptr, e[i].size);
-	if (K4W2_SUCCESS != r) {
+	r = k4w2_load(dirname, e[i].filename, e[i].ptr, e[i].size,
+		      &actual_size);
+	if (K4W2_SUCCESS != r || actual_size != e[i].size) {
 	    VERBOSE("failed to load(%s/%s)", dirname, e[i].filename);
 	}
     }

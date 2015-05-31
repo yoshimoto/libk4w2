@@ -412,7 +412,8 @@ depth_cpu_set_params(k4w2_decoder_t ctx,
 {
     decoder_depth * d = (decoder_depth *)ctx;
     int r;
-
+    size_t actual_size;
+    
     static const char *searchpath[] = {
 	".",
 #if defined K4W2_DATADIR
@@ -421,18 +422,21 @@ depth_cpu_set_params(k4w2_decoder_t ctx,
     };
     set_params(&d->params);
     r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-			     "11to16.bin", lut11to16, 4096);
-    if (K4W2_SUCCESS != r)
+			     "11to16.bin", lut11to16, 4096,
+			     &actual_size);
+    if (K4W2_SUCCESS != r || 4096 != actual_size)
 	return r;
 
     r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-			     "xTable.bin", d->x_table, 512*424*4);
-    if (K4W2_SUCCESS != r)
+			     "xTable.bin", d->x_table, 512*424*4,
+			     &actual_size);
+    if (K4W2_SUCCESS != r || 512*424*4 != actual_size)
 	return r;
 
     r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-			     "zTable.bin", d->z_table, 512*424*4);
-    if (K4W2_SUCCESS != r)
+			     "zTable.bin", d->z_table, 512*424*4,
+			     &actual_size);
+    if (K4W2_SUCCESS != r || 512*424*4 != actual_size)
 	return r;
 
     fill_trig_tables(&d->params, p0table->p0table0, d->trig_table0);
