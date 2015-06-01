@@ -1,4 +1,4 @@
-/*
+s/*
  * This file is a part of the OpenKinect project
  *
  * Copyright (c) 2014 individual OpenKinect contributors. See the CONTRIB file
@@ -36,12 +36,10 @@
 #include <math.h>
 
 #define __CL_ENABLE_EXCEPTIONS
-#ifdef __APPLE__
+#if defined(__APPLE__ ) || defined(__MACOSX)
 #include <OpenCL/cl.hpp>
 #else
-#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
 #include <CL/cl.h>
-#undef CL_VERSION_1_2
 #include <CL/cl.hpp>
 #endif
 
@@ -76,7 +74,7 @@ public:
     bool setup(cl::Context context,
 	       const parameters &params,
 	       size_t num_slot);
-    int set_params(cl::Context context,
+    int set_params(cl::CommandQueue queue,
 		   const kinect2_color_camera_param * color,
 		   const kinect2_depth_camera_param * depth,
 		   const kinect2_p0table * p0table);
@@ -89,46 +87,48 @@ private:
      
     cl::Program program;
 
-     cl::Kernel kernel_processPixelStage1;
+	cl::Kernel kernel_processPixelStage1;
 //     cl::Kernel kernel_filterPixelStage1;
-     cl::Kernel kernel_processPixelStage2;
+	cl::Kernel kernel_processPixelStage2;
 //     cl::Kernel kernel_filterPixelStage2;
 
 
-     // Read only buffers
-     size_t buf_packet_size;
+	// Read only buffers
+	size_t buf_packet_size;
 
-     cl::Buffer buf_lut11to16;
-     cl::Buffer buf_p0_table;
-     cl::Buffer buf_x_table;
-     cl::Buffer buf_z_table;
-     cl::Buffer buf_packet;
+	cl::Buffer buf_lut11to16;
+	cl::Buffer buf_p0_table;
+	cl::Buffer buf_x_table;
+	cl::Buffer buf_z_table;
 
-     // Read-Write buffers
-     size_t buf_a_size;
-     size_t buf_b_size;
-     size_t buf_n_size;
-     size_t buf_ir_size;
+	cl::Buffer buf_packet;
+
+	// Read-Write buffers
+	size_t buf_a_size;
+	size_t buf_b_size;
+	size_t buf_n_size;
+	size_t buf_ir_size;
 //     size_t buf_a_filtered_size;
 //     size_t buf_b_filtered_size;
 //     size_t buf_edge_test_size;
-     size_t buf_depth_size;
-     size_t buf_ir_sum_size;
+	size_t buf_depth_size;
+	size_t buf_ir_sum_size;
 //     size_t buf_filtered_size;
 
-     cl::Buffer buf_a;
-     cl::Buffer buf_b;
-     cl::Buffer buf_n;
-     cl::Buffer buf_ir;
+	cl::Buffer buf_a;
+	cl::Buffer buf_b;
+	cl::Buffer buf_n;
+	cl::Buffer buf_ir;
 //     cl::Buffer buf_a_filtered;
 //     cl::Buffer buf_b_filtered;
 //     cl::Buffer buf_edge_test;
-     cl::Buffer buf_depth;
-     cl::Buffer buf_ir_sum;
+	cl::Buffer buf_depth;
+	cl::Buffer buf_ir_sum;
 //     cl::Buffer buf_filtered;
 
 
     struct Slot {
+
 	std::vector<cl::Event> eventWrite, eventPPS1,  eventPPS2;
 	cl::Event event0, event1;
     };
@@ -264,7 +264,7 @@ DecoderCL::setup(cl::Context context,
     char* sourcecode = new char [MAX_SOURCECODE_SIZE];
     size_t sourcelength;
     int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				 "depth_kernel.cl",
+				 "depth.cl",
 				 sourcecode, MAX_SOURCECODE_SIZE,
 				 &sourcelength);
     if (K4W2_SUCCESS != r) {
@@ -282,7 +282,6 @@ DecoderCL::setup(cl::Context context,
 						sourcelength));
 	program = cl::Program(context, src);
 	program.build(options.c_str());
-
 
 	//Read only
 	buf_packet_size = KINECT2_DEPTH_FRAME_SIZE * 10;
@@ -312,6 +311,15 @@ DecoderCL::setup(cl::Context context,
 	buf_depth = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_depth_size, NULL, &err);
 	buf_ir_sum = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_sum_size, NULL, &err);
 //	  buf_filtered = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_filtered_size, NULL, &err);
+
+	buf_lut11to16 = cl::Buffer(context, CL_READ_ONLY_CACHE, 2*2048UL, NULL, &err);
+	buf_p0_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
+				  IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+	buf_x_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
+				 IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+	buf_z_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
+				 IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+
 
 	kernel_processPixelStage1 = cl::Kernel(program, "processPixelStage1", &err);
 	kernel_processPixelStage1.setArg(0, buf_lut11to16);
@@ -364,7 +372,7 @@ DecoderCL::setup(cl::Context context,
 }
 
 int
-DecoderCL::set_params(cl::Context context,
+DecoderCL::set_params(cl::CommandQueue queue,
 		      const kinect2_color_camera_param * color,
 		      const kinect2_depth_camera_param * depth,
 		      const kinect2_p0table * p0table)
@@ -376,51 +384,61 @@ DecoderCL::set_params(cl::Context context,
 #endif
     };
 
-    cl_int err;
-    {
-	size_t actual_size;
-	int16_t lut[2048];
-	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "11to16.bin",
-				     lut, sizeof(lut),
-				     &actual_size);
-	if (K4W2_SUCCESS != r || sizeof(lut) != actual_size)
-	    return r;
-	buf_lut11to16 = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				   sizeof(lut), lut, &err);
-    }
+    cl_int err = CL_SUCCESS;
+    try { 
+	{
+	    size_t actual_size;
+	    int16_t lut[2048];
+	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
+					 "11to16.bin",
+					 lut, sizeof(lut),
+					 &actual_size);
+	    if (K4W2_SUCCESS != r || sizeof(lut) != actual_size)
+		return r;
+	    queue.enqueueWriteBuffer(buf_lut11to16, CL_TRUE,
+				     0, sizeof(lut), lut,
+				     NULL, NULL);
+	}
 
-    {
-	cl_float3 tmp[IMAGE_SIZE];
-	fill_trig_table(p0table, tmp);
-	buf_p0_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				  sizeof(tmp), tmp, &err);
-    }
+	{
+	    cl_float3 tmp[IMAGE_SIZE];
+	    fill_trig_table(p0table, tmp);
+	    queue.enqueueWriteBuffer(buf_p0_table, CL_TRUE,
+				     0, sizeof(tmp), tmp,
+				     NULL, NULL);
+	}
 
-    {
-	cl_float x_table[IMAGE_SIZE];
-	size_t actual_size;
-	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "xTable.bin",
-				     x_table, sizeof(x_table),
-				     &actual_size);
-	if (K4W2_SUCCESS != r || sizeof(x_table) != actual_size)
-	    return r;
-	buf_x_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				 sizeof(x_table), x_table, &err);
-    }
+	{
+	    cl_float x_table[IMAGE_SIZE];
+	    size_t actual_size;
+	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
+					 "xTable.bin",
+					 x_table, sizeof(x_table),
+					 &actual_size);
+	    if (K4W2_SUCCESS != r || sizeof(x_table) != actual_size)
+		return r;
+	    queue.enqueueWriteBuffer(buf_x_table, CL_TRUE,
+				     0, sizeof(x_table), x_table,
+				     NULL, NULL);
+	}
 
+	{
+	    cl_float z_table[IMAGE_SIZE];
+	    size_t actual_size;
+	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
+					 "zTable.bin",
+					 z_table, sizeof(z_table),
+					 &actual_size);
+	    if (K4W2_SUCCESS != r || sizeof(z_table) != actual_size)
+		return r;     
+	    queue.enqueueWriteBuffer(buf_z_table, CL_TRUE,
+				     0, sizeof(z_table), z_table,
+				     NULL, NULL);
+	}
+    }
+    catch(const cl::Error &err)
     {
-	cl_float z_table[IMAGE_SIZE];
-	size_t actual_size;
-	int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-				     "zTable.bin",
-				     z_table, sizeof(z_table),
-				     &actual_size);
-	if (K4W2_SUCCESS != r || sizeof(z_table) != actual_size)
-	    return r;     
-	buf_z_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				 sizeof(z_table), z_table, &err);
+	VERBOSE("%s %s", err.what() , err.err());
     }
     return K4W2_SUCCESS;
 }
@@ -430,21 +448,25 @@ bool
 DecoderCL::request(cl::CommandQueue queue,
 		   int slot, const void *ptr, int length)
 {
-    VERBOSE("enter; slot: %d", slot);
-    assert( KINECT2_DEPTH_FRAME_SIZE*10 == length);
+    if (KINECT2_DEPTH_FRAME_SIZE*10 != length) {
+	return false;
+    }
 
     Slot& s = m_slot[slot];
     try
     {
 	queue.enqueueWriteBuffer(buf_packet, CL_FALSE, 0, length, ptr,
 				 NULL, &s.eventWrite[0]);
+
 	queue.enqueueNDRangeKernel(kernel_processPixelStage1,
-				   cl::NullRange, cl::NDRange(IMAGE_SIZE), cl::NullRange,
+				   cl::NullRange,
+				   cl::NDRange(IMAGE_SIZE),
+				   cl::NullRange,
 				   &s.eventWrite, &s.eventPPS1[0]);
+
 	queue.enqueueNDRangeKernel(kernel_processPixelStage2,
 				   cl::NullRange, cl::NDRange(IMAGE_SIZE), cl::NullRange,
 				   &s.eventPPS1, &s.eventPPS2[0]);
-
     }
     catch (const cl::Error & err) {
 	std::cerr 
@@ -462,21 +484,15 @@ DecoderCL::request(cl::CommandQueue queue,
 bool
 DecoderCL::fetch(cl::CommandQueue queue, int slot, void *dst, int dst_length)
 {
-    VERBOSE("enter; slot %d", slot);
-
     Slot& s = m_slot[slot];
     try
     {
-	VERBOSE("ir");
 	queue.enqueueReadBuffer(buf_ir, CL_FALSE,
 				0, buf_ir_size, (char*)dst + buf_depth_size,
 				&s.eventPPS1, &s.event0);
-	VERBOSE("depth");
 	queue.enqueueReadBuffer(buf_depth, CL_FALSE,
 				0, buf_depth_size, dst,
 				&s.eventPPS2, &s.event1);
-	VERBOSE("done");
-
 	s.event0.wait();
 	s.event1.wait();
     }
@@ -566,7 +582,7 @@ depth_ocl_set_params(k4w2_decoder_t ctx,
 		     struct kinect2_p0table * p0table)
 {
     depth_ocl * d = (depth_ocl *)ctx;
-    return d->dcl.set_params(d->context, color, depth, p0table);
+    return d->dcl.set_params(d->queue, color, depth, p0table);
 }
 
 static int

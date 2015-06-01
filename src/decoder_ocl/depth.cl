@@ -1,5 +1,6 @@
 /*
- * This file is part of the OpenKinect Project. http://www.openkinect.org
+ * This file is based on libfreenect2/examples/protonect/src/opencl_depth_packet_processor.cl 
+ * from the OpenKinect Project, http://www.openkinect.org
  *
  * Copyright (c) 2014 individual OpenKinect contributors. See the CONTRIB file
  * for details.
@@ -28,25 +29,25 @@
  * Process pixel stage 1
  ******************************************************************************/
 
-float decodePixelMeasurement(global const ushort *data, global const short *lut11to16, const uint sub, const uint x, const uint y)
+float decodePixelMeasurement(global const ushort *data, global const short *lut11to16,
+			     const uint sub, const uint x, const uint y)
 {
-	/*    uint row_idx = (424 * sub + (y < 212 ? y + 212 : 423 - y)) * 352;*/
-    uint row_idx = KINECT2_DEPTH_FRAME_SIZE*sub + (y < 212 ? y + 212 : 423 - y) * 352;
-    uint idx = (((x >> 2) + ((x << 7) & BFI_BITMASK)) * 11) & (uint)0xffffffff;
+     uint row_idx = (KINECT2_DEPTH_FRAME_SIZE/2)*sub + (y < 212 ? y + 212 : 423 - y) * 352;
+     uint idx = (((x >> 2) + ((x << 7) & BFI_BITMASK)) * 11) & (uint)0xffffffff;
 
-    uint col_idx = idx >> 4;
-    uint upper_bytes = idx & 15;
-    uint lower_bytes = 16 - upper_bytes;
+     uint col_idx = idx >> 4;
+     uint upper_bytes = idx & 15;
+     uint lower_bytes = 16 - upper_bytes;
 
-    uint data_idx0 = row_idx + col_idx;
-    uint data_idx1 = row_idx + col_idx + 1;
+     uint data_idx0 = row_idx + col_idx;
+     uint data_idx1 = row_idx + col_idx + 1;
 
-    return (float)lut11to16[(x < 1 || 510 < x || col_idx > 352) ? 0 : ((data[data_idx0] >> upper_bytes) | (data[data_idx1] << lower_bytes)) & 2047];
+     return (float)lut11to16[(x < 1 || 510 < x || col_idx > 352) ? 0 : ((data[data_idx0] >> upper_bytes) | (data[data_idx1] << lower_bytes)) & 2047];
 }
 
 float2 processMeasurementTriple(const float ab_multiplier_per_frq, const float p0, const float3 v, int *invalid)
 {
-    float3 p0vec = (float3)(p0 + PHASE_IN_RAD0, p0 + PHASE_IN_RAD1, p0 + PHASE_IN_RAD2);
+    float3 p0vec = (float3)(p0) + (float3)(PHASE_IN_RAD0, PHASE_IN_RAD1, PHASE_IN_RAD2);
     float3 p0cos = cos(p0vec);
     float3 p0sin = sin(-p0vec);
 

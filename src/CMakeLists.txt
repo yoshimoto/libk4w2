@@ -40,7 +40,7 @@ else(TURBOJPEG_FOUND)
   message(FATAL_ERROR "TurboJPEG is missing, aborting!")
 endif(TURBOJPEG_FOUND)
 add_definitions(-DK4W2_DATADIR="${CMAKE_CURRENT_SOURCE_DIR}")
-list(APPEND SRC decoder_color_cpu.c decoder_depth_cpu.c)
+list(APPEND SRC decoder_cpu/color_cpu.c decoder_cpu/depth_cpu.c)
 
 list(APPEND SRC registration.c)
 
@@ -50,7 +50,7 @@ if (OPENMP_FOUND)
 endif()
 
 if (OpenCL_FOUND)
-list(APPEND SRC decoder_cl/depth_cl.cpp)
+list(APPEND SRC decoder_ocl/depth_ocl.cpp)
 endif()
 
 add_library (k4w2 SHARED ${SRC})
