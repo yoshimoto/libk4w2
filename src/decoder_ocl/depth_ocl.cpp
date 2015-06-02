@@ -1,4 +1,4 @@
-s/*
+/*
  * This file is a part of the OpenKinect project
  *
  * Copyright (c) 2014 individual OpenKinect contributors. See the CONTRIB file
