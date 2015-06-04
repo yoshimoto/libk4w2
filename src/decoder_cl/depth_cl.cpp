@@ -516,7 +516,7 @@ DecoderCL::fetch(cl::CommandQueue queue, int slot, void *dst, int dst_length)
 
 BEGIN_EXTERN_C
 
-struct depth_ocl {
+struct depth_cl {
     struct k4w2_decoder_ctx decoder; 
     DecoderCL dcl;
     cl::Context context;
@@ -524,10 +524,10 @@ struct depth_ocl {
 };
 
 static int
-depth_ocl_open(k4w2_decoder_t ctx, unsigned int type)
+depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
 {
     VERBOSE("enter");
-    depth_ocl * d = (depth_ocl *)ctx;
+    depth_cl * d = (depth_cl *)ctx;
 
     if (type != K4W2_DECODER_DEPTH)
 	return K4W2_ERROR;
@@ -535,6 +535,7 @@ depth_ocl_open(k4w2_decoder_t ctx, unsigned int type)
     // placement new to initialize DecoderCL
     new (&d->dcl) DecoderCL;
 
+    VERBOSE("decoder cl");
 
     cl_int err = CL_SUCCESS;
     try { 
@@ -551,6 +552,8 @@ depth_ocl_open(k4w2_decoder_t ctx, unsigned int type)
         d->context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
 
 	std::vector<cl::Device> devices = d->context.getInfo<CL_CONTEXT_DEVICES>();
+	VERBOSE("# of devices: %zd", devices.size());
+
 	d->queue   = cl::CommandQueue(d->context, devices[0], 0, &err);
     }
     catch (cl::Error err) {
@@ -576,52 +579,52 @@ depth_ocl_open(k4w2_decoder_t ctx, unsigned int type)
 }
 
 static int
-depth_ocl_set_params(k4w2_decoder_t ctx, 
+depth_cl_set_params(k4w2_decoder_t ctx, 
 		     struct kinect2_color_camera_param * color,
 		     struct kinect2_depth_camera_param * depth,
 		     struct kinect2_p0table * p0table)
 {
-    depth_ocl * d = (depth_ocl *)ctx;
+    depth_cl * d = (depth_cl *)ctx;
     return d->dcl.set_params(d->queue, color, depth, p0table);
 }
 
 static int
-depth_ocl_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
+depth_cl_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
 {
-    depth_ocl * d = (depth_ocl *)ctx;
+    depth_cl * d = (depth_cl *)ctx;
     bool r = d->dcl.request(d->queue, slot, src, src_length);
     return r?K4W2_SUCCESS:K4W2_ERROR;
 }
 
 static int
-depth_ocl_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
+depth_cl_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 {
-    depth_ocl * d = (depth_ocl *)ctx;
+    depth_cl * d = (depth_cl *)ctx;
     bool r = d->dcl.fetch(d->queue, slot, dst, dst_length);
     return r?K4W2_SUCCESS:K4W2_ERROR;
     
 }
 
 static int
-depth_ocl_close(k4w2_decoder_t ctx)
+depth_cl_close(k4w2_decoder_t ctx)
 {
-    depth_ocl * d = (depth_ocl *)ctx;
+    depth_cl * d = (depth_cl *)ctx;
 
     // call destructor explicitly
     d->dcl.~DecoderCL();
 }
 
-REGISTER_MODULE(k4w2_decoder_depth_ocl_init)
+REGISTER_MODULE(k4w2_decoder_depth_cl_init)
 {
     static k4w2_decoder_ops ops;
-    ops.open	= depth_ocl_open;
-    ops.set_params = depth_ocl_set_params;
-    ops.request	= depth_ocl_request;
-    //    ops.wait	= depth_ocl_wait;
-    ops.fetch	= depth_ocl_fetch;
-    ops.close	= depth_ocl_close;
+    ops.open	= depth_cl_open;
+    ops.set_params = depth_cl_set_params;
+    ops.request	= depth_cl_request;
+    //    ops.wait	= depth_cl_wait;
+    ops.fetch	= depth_cl_fetch;
+    ops.close	= depth_cl_close;
     
-    k4w2_register_decoder("depth OpenCL", &ops, sizeof(depth_ocl));
+    k4w2_register_decoder("depth OpenCL", &ops, sizeof(depth_cl));
 }
 
 END_EXTERN_C

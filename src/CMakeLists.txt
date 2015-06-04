@@ -50,10 +50,19 @@ if (OPENMP_FOUND)
 endif()
 
 if (OpenCL_FOUND)
-list(APPEND SRC decoder_ocl/depth_ocl.cpp)
+  include_directories(${OPENCL_INCLUDE_DIRS})
+  list(APPEND SRC decoder_cl/depth_cl.cpp)
+endif()
+
+if(LIBGPUJPEG_FOUND)
+  add_definitions(-DHAVE_LIBGPUJPEG)
+  include_directories(${LIBGPUJPEG_INCLUDE_DIRS})
+  link_directories(${LIBGPUJPEG_LIBRARY_DIRS})
+  list(APPEND SRC decoder_cuda/color_cuda.c)
 endif()
 
 add_library (k4w2 SHARED ${SRC})
+
 set_target_properties (k4w2 PROPERTIES
   VERSION ${PROJECT_VER}
   SOVERSION ${PROJECT_VER})
@@ -64,10 +73,15 @@ if(TURBOJPEG_FOUND)
   target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
 endif()
 if(OpenCL_FOUND)
-include_directories(${OPENCL_INCLUDE_DIRS})
-  target_link_libraries (k4w2 ${OpenCL_LIBRARIES})
+  target_link_libraries(k4w2 ${OpenCL_LIBRARIES})
 endif()
+if(LIBGPUJPEG_FOUND)
+  target_link_libraries(k4w2 ${LIBGPUJPEG_LIBRARIES})
+endif()
+
+
 target_link_libraries (k4w2 "m")
+
 
 install (TARGETS k4w2
   DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}")
