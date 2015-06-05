@@ -25,10 +25,12 @@ EXTERN_C_BEGIN
 
 typedef struct k4w2_decoder_ctx * k4w2_decoder_t;
 
-#define K4W2_DECODER_COLOR 0
-#define K4W2_DECODER_DEPTH 1
-#define K4W2_DECODER_COLOR_GPU 2
-#define K4W2_DECODER_DEPTH_GPU 3
+#define K4W2_DECODER_COLOR     0
+#define K4W2_DECODER_DEPTH     1
+#define K4W2_DECODER_TYPE_MASK 0x0f
+#define K4W2_DECODER_DISABLE_OPENCL (1<<5)
+#define K4W2_DECODER_DISABLE_CUDA   (1<<6)
+#define K4W2_DECODER_USE_OPENGL     (1<<7)
 
 k4w2_decoder_t k4w2_decoder_open(unsigned int type, int num_slot);
 int k4w2_decoder_set_params(k4w2_decoder_t ctx,

@@ -526,16 +526,15 @@ struct depth_cl {
 static int
 depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
 {
-    VERBOSE("enter");
     depth_cl * d = (depth_cl *)ctx;
 
-    if (type != K4W2_DECODER_DEPTH)
+    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_DEPTH)
+	return K4W2_ERROR;
+    if ( type & K4W2_DECODER_DISABLE_OPENCL )
 	return K4W2_ERROR;
 
     // placement new to initialize DecoderCL
     new (&d->dcl) DecoderCL;
-
-    VERBOSE("decoder cl");
 
     cl_int err = CL_SUCCESS;
     try { 
@@ -552,7 +551,6 @@ depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
         d->context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
 
 	std::vector<cl::Device> devices = d->context.getInfo<CL_CONTEXT_DEVICES>();
-	VERBOSE("# of devices: %zd", devices.size());
 
 	d->queue   = cl::CommandQueue(d->context, devices[0], 0, &err);
     }
@@ -570,7 +568,6 @@ depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
     init_params(&params);
 
     if (! d->dcl.setup(d->context, params, ctx->num_slot) ) {
-	VERBOSE("setup() failed");
 	return K4W2_ERROR;
     }
 

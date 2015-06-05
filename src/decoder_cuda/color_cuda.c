@@ -28,12 +28,16 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 {
     decoder_cuda * d = (decoder_cuda *)ctx;
 
-    if (type != K4W2_DECODER_COLOR)
+    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_COLOR)
+	goto err;
+    if ( type & K4W2_DECODER_DISABLE_CUDA )
 	goto err;
 
     int flags = GPUJPEG_VERBOSE;
-    /*GPUJPEG_OPENGL_INTEROPERABILITY*/
-    VERBOSE("open");
+
+    if ( type & K4W2_DECODER_USE_OPENGL )
+	flags |= GPUJPEG_OPENGL_INTEROPERABILITY;
+
     gpujpeg_init_device(0, flags);
 
     d->cuda = gpujpeg_decoder_create();
@@ -58,8 +62,6 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 	}
 	}*/
     gpujpeg_decoder_output_set_default(&d->output);
-
-    VERBOSE("cuda start!");
 
     return K4W2_SUCCESS;
 err:

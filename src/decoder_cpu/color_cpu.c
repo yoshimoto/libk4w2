@@ -27,7 +27,7 @@ color_tj_open(k4w2_decoder_t ctx, unsigned int type)
 {
     decoder_tj * d = (decoder_tj *)ctx;
 
-    if (type != K4W2_DECODER_COLOR)
+    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_COLOR)
 	goto err;
 
     d->buf = allocate_bufs(ctx->num_slot, 1920 * 1080 * 3);
