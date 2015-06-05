@@ -8,12 +8,14 @@ Linux
  - gspca/kinect2 kernel module (optional; recommended)  
    see https://github.com/yoshimoto/gspca-kinect2
  - libusb-1.0 (optional)
- - turbojpeg
+ - turbojpeg (optional)
+ - GPUJPEG (optional)
 
 Mac OSX
-- cmake
-- libusb-1.0 
-- turbojpeg
+ - cmake
+ - libusb-1.0 
+ - turbojpeg (optional)
+ - GPUJPEG (optional, not tested yet)
 
 Windows (not tested yet because I have no windows env.)
  - cmake
