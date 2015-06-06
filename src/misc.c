@@ -104,9 +104,9 @@ k4w2_load(const char *dirname, const char *filename,
     char path[FILENAME_MAX];
 
     snprintf(path, sizeof(path), "%s/%s", dirname, filename);
-    VERBOSE("trying to open(%s)", path);
     if (access(path, F_OK)) {
 	/* no such file */
+	VERBOSE("%s is not found", path);
 	return K4W2_ERROR;
     }
 

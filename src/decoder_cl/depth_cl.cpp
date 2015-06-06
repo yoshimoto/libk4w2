@@ -255,9 +255,8 @@ DecoderCL::setup(cl::Context context,
     
     static const char *searchpath[] = {
 	".",
-#if defined K4W2_DATADIR
+	K4W2_SRCDIR"/decoder_cl",
 	K4W2_DATADIR,
-#endif
     };
 
     const int MAX_SOURCECODE_SIZE = 20 * 1024;
@@ -379,9 +378,8 @@ DecoderCL::set_params(cl::CommandQueue queue,
 {
     static const char *searchpath[] = {
 	".",
-#if defined K4W2_DATADIR
+	K4W2_SRCDIR,
 	K4W2_DATADIR,
-#endif
     };
 
     cl_int err = CL_SUCCESS;

@@ -16,6 +16,9 @@ if(APPLE)
     endif()
 endif()
 
+add_definitions(-DK4W2_SRCDIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_definitions(-DK4W2_DATADIR="${CMAKE_INSTALL_PREFIX}/${PROJECT_DATA_INSTALL_DIR}")
+
 list(APPEND SRC libk4w2.c misc.c)
 
 list(APPEND SRC driver.c)
@@ -39,7 +42,6 @@ if(TURBOJPEG_FOUND)
 else(TURBOJPEG_FOUND)
   message(FATAL_ERROR "TurboJPEG is missing, aborting!")
 endif(TURBOJPEG_FOUND)
-add_definitions(-DK4W2_DATADIR="${CMAKE_CURRENT_SOURCE_DIR}")
 list(APPEND SRC decoder_cpu/color_cpu.c decoder_cpu/depth_cpu.c)
 
 list(APPEND SRC registration.c)
@@ -55,9 +57,9 @@ if (OpenCL_FOUND)
 endif()
 
 if(LIBGPUJPEG_FOUND)
-  add_definitions(-DHAVE_LIBGPUJPEG)
+  add_definitions    (-DHAVE_LIBGPUJPEG)
   include_directories(${LIBGPUJPEG_INCLUDE_DIRS})
-  link_directories(${LIBGPUJPEG_LIBRARY_DIRS})
+  link_directories   (${LIBGPUJPEG_LIBRARY_DIRS})
   list(APPEND SRC decoder_cuda/color_cuda.c)
 endif()
 
@@ -73,15 +75,14 @@ if(TURBOJPEG_FOUND)
   target_link_libraries (k4w2 ${TURBOJPEG_LIBRARIES})
 endif()
 if(OpenCL_FOUND)
-  target_link_libraries(k4w2 ${OpenCL_LIBRARIES})
+  target_link_libraries (k4w2 ${OpenCL_LIBRARIES})
 endif()
 if(LIBGPUJPEG_FOUND)
-  target_link_libraries(k4w2 ${LIBGPUJPEG_LIBRARIES})
+  target_link_libraries (k4w2 ${LIBGPUJPEG_LIBRARIES})
 endif()
-
-
-target_link_libraries (k4w2 "m")
-
+if(UNIX)
+  target_link_libraries (k4w2 "m")
+endif()
 
 install (TARGETS k4w2
   DESTINATION "${PROJECT_LIBRARY_INSTALL_DIR}")
@@ -93,14 +94,28 @@ install (FILES
   "../include/libk4w2/kinect2.h" 
   "../include/libk4w2/decoder.h"
   "../include/libk4w2/registration.h"
-  DESTINATION ${PROJECT_INCLUDE_INSTALL_DIR})
+  DESTINATION ${PROJECT_INCLUDE_INSTALL_DIR}/${PROJECT_NAME})
 
+install (FILES
+  "xTable.bin"
+  "zTable.bin"
+  "11to16.bin"
+  DESTINATION ${PROJECT_DATA_INSTALL_DIR})
+
+if (OpenCL_FOUND)
+  install (FILES
+    "decoder_cl/depth.cl"
+    DESTINATION ${PROJECT_DATA_INSTALL_DIR})
+endif()
 
 # PKGCONFIG support
 IF(UNIX)
+  set(PKGCONFIG_REQUIRES)
   if(LIBUSB_1_FOUND)
-    set(PKGCONFIG_REQUIRES)
-    list(APPEND PKGCONFIG_REQUIRES libusb-1.0)
+    set(PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES} libusb-1.0")
+  endif()
+  if(LIBGPUJPEG_FOUND)
+    set(PKGCONFIG_REQUIRES "${PKGCONFIG_REQUIRES} libgpujpeg")
   endif()
   configure_file (libk4w2.pc.in libk4w2.pc @ONLY)
   install (FILES "${CMAKE_CURRENT_BINARY_DIR}/libk4w2.pc"
