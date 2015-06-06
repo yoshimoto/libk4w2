@@ -33,11 +33,18 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
     if ( type & K4W2_DECODER_DISABLE_CUDA )
 	goto err;
 
-    int flags = GPUJPEG_VERBOSE;
-
+    int flags = 0;
+    if (k4w2_debug_level > 1)
+	flags |= GPUJPEG_VERBOSE;
     if ( type & K4W2_DECODER_USE_OPENGL )
 	flags |= GPUJPEG_OPENGL_INTEROPERABILITY;
 
+    /* 
+     * Note; gpujpeg_init_device() will call cudaGLSetGLDevice() when
+     * GPUJPEG_OPENGL_INTEROPERABILITY is set.
+     * If you want to use gpujpeg with OpenCL/OpenGL,
+     * OpenCL/OpenGL context must be initialized and attacted before.
+     */
     gpujpeg_init_device(0, flags);
 
     d->cuda = gpujpeg_decoder_create();

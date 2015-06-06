@@ -71,8 +71,15 @@ main()
     k4w2_registration_t registration = 0;
 
     k4w2_decoder_t decoder[2] = {0};
-    decoder[0] = k4w2_decoder_open(K4W2_DECODER_COLOR, 1);
+
+    /* 
+     * Note; If you want to use CUDA and OpenCL at the same time,
+     * OpenCL context must be initialized first.  To guarantee this
+     * initialization order, the code below initializes the depth
+     * decoder first.
+     */
     decoder[1] = k4w2_decoder_open(K4W2_DECODER_DEPTH, 1);
+    decoder[0] = k4w2_decoder_open(K4W2_DECODER_COLOR, 1);
 
     {
 	struct kinect2_color_camera_param colorparam;
