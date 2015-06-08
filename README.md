@@ -5,16 +5,17 @@ library for "Kinect for Windows v2" sensor
 
 Linux
  - cmake
- - gspca/kinect2 kernel module (optional; recommended)  
-   See https://github.com/yoshimoto/gspca-kinect2
+ - gspca/kinect2 kernel module (optional; recommended) 
+  * See https://github.com/yoshimoto/gspca-kinect2
  - libusb-1.0 (optional)
  - turbojpeg (optional)
  - GPUJPEG (optional)
-   A modified version of GPUJPEG is required. It is available at https://sourceforge.net/u/yosimoto/gpujpeg/ci/master/tree/
+  * A modified version of GPUJPEG is required. 
+   It is available at https://sourceforge.net/u/yosimoto/gpujpeg/ci/master/tree/
  - OpenMP (optional)
-   Some codes will be optimized when OpenMP is available
+  * Some codes will be optimized when OpenMP is available
  - OpenCV (optional)
-   OpenCV-based sample codes are available in directory "examples/"
+  * OpenCV-based sample codes are available in directory "examples/"
 
 Mac OSX
  - cmake
