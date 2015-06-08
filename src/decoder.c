@@ -61,8 +61,9 @@ k4w2_decoder_open(unsigned int type, int num_slot)
     MUTEX_LOCK(&decoder_mutex);
 
     if (firsttime) {
-	INITIALIZE_MODULE(k4w2_decoder_depth_ocl_init);
+	INITIALIZE_MODULE(k4w2_decoder_depth_cl_init);
 	INITIALIZE_MODULE(k4w2_decoder_depth_cpu_init);
+	INITIALIZE_MODULE(k4w2_decoder_color_cuda_init);
 	INITIALIZE_MODULE(k4w2_decoder_color_cpu_init);
 
 	if (getenv("LIBK4W2_VERBOSE")) {
@@ -86,6 +87,8 @@ k4w2_decoder_open(unsigned int type, int num_slot)
 	} else if (K4W2_SUCCESS == ctx->ops->open(ctx, type)) {
 	    VERBOSE("%s decoder is selected.", decoder[i].name);
 	    goto exit;
+	} else {
+	    VERBOSE("%s decoder is skipped.", decoder[i].name);
 	}
 
 	free(ctx);

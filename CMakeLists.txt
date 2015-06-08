@@ -54,9 +54,12 @@ set (PROJECT_VER
 
 find_package(libusb-1.0)
 
-k4w2_option(WITH_V4L2      "enable v4l2 driver"       ON IF PROJECT_OS_LINUX)
-k4w2_option(WITH_LIBUSB    "enable libusb-1.0 driver" ON IF LIBUSB_1_FOUND)
-k4w2_option(BUILD_EXAMPLES "Build example programs" ON)
+pkg_check_modules(LIBGPUJPEG libgpujpeg)
+
+k4w2_option(WITH_V4L2       "enable v4l2 driver"       ON IF PROJECT_OS_LINUX)
+k4w2_option(WITH_LIBUSB     "enable libusb-1.0 driver" ON IF LIBUSB_1_FOUND)
+k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder" ON IF LIBGPUJPEG_FOUND)
+k4w2_option(BUILD_EXAMPLES  "Build example programs" ON)
 
 # Target directories
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
@@ -84,6 +87,7 @@ status("")
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
 status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
 status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
+status("           GPUJPEG : " LIBGPUJPEG_FOUND THEN Yes     ELSE No)
 status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
 status("")

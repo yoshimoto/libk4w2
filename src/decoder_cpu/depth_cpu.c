@@ -363,7 +363,7 @@ depth_cpu_open(k4w2_decoder_t ctx, unsigned int type)
 {
     decoder_depth * d = (decoder_depth *)ctx;
 
-    if (type != K4W2_DECODER_DEPTH)
+    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_DEPTH)
 	goto err;
 
     d->work = allocate_bufs(ctx->num_slot, 512 * 424 * sizeof(float)*9);
