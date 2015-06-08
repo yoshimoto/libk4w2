@@ -29,12 +29,11 @@ if(WITH_V4L2)
 endif(WITH_V4L2)
 
 if(WITH_LIBUSB)
+  add_definitions(-DWITH_LIBUSB)
   include_directories(${LIBUSB_1_INCLUDE_DIRS})
   list(APPEND SRC driver_libusb/driver_libusb.c driver_libusb/usb_dev.c driver_libusb/usb_stream.c)
-  add_definitions(-DWITH_LIBUSB)
 endif(WITH_LIBUSB)
 
-list(APPEND SRC decoder.c)
 find_package(TurboJPEG)
 if(TURBOJPEG_FOUND)
   include_directories(${TURBOJPEG_INCLUDE_DIRS})
@@ -52,6 +51,7 @@ if (OPENMP_FOUND)
 endif()
 
 if (OpenCL_FOUND)
+  add_definitions(-DHAVE_OPENCL)
   include_directories(${OPENCL_INCLUDE_DIRS})
   list(APPEND SRC decoder_cl/depth_cl.cpp)
 endif()
@@ -62,6 +62,8 @@ if(LIBGPUJPEG_FOUND)
   link_directories   (${LIBGPUJPEG_LIBRARY_DIRS})
   list(APPEND SRC decoder_cuda/color_cuda.c)
 endif()
+
+list(APPEND SRC decoder.c)
 
 add_library (k4w2 SHARED ${SRC})
 
