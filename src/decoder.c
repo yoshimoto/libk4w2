@@ -61,9 +61,13 @@ k4w2_decoder_open(unsigned int type, int num_slot)
     MUTEX_LOCK(&decoder_mutex);
 
     if (firsttime) {
+#if defined HAVE_OPENCL
 	INITIALIZE_MODULE(k4w2_decoder_depth_cl_init);
+#endif
 	INITIALIZE_MODULE(k4w2_decoder_depth_cpu_init);
+#if defined HAVE_LIBGPUJPEG
 	INITIALIZE_MODULE(k4w2_decoder_color_cuda_init);
+#endif
 	INITIALIZE_MODULE(k4w2_decoder_color_cpu_init);
 
 	if (getenv("LIBK4W2_VERBOSE")) {
