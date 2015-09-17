@@ -68,67 +68,66 @@ struct parameters {
      float max_depth;
 };
 
+/**
+ * @class DecoderCL depth_cl.cpp
+ *
+ */
 class DecoderCL
 {
 public:
-    bool setup(cl::Context context,
-	       const parameters &params,
-	       size_t num_slot);
-    int set_params(cl::CommandQueue queue,
-		   const kinect2_color_camera_param * color,
+    bool setup(const parameters &params, size_t num_slot);
+    int set_params(const kinect2_color_camera_param * color,
 		   const kinect2_depth_camera_param * depth,
 		   const kinect2_p0table * p0table);
 
-    bool request(cl::CommandQueue queue,
-		 int slot, const void *ptr, int length);
-    bool fetch(cl::CommandQueue queue,
-	       int slot, void *dst, int dst_length);
+    bool request(int slot, const void *ptr, int length);
+    bool fetch(int slot, void *dst, int dst_length);
 private:
+    cl::Context context;
+    cl::CommandQueue queue;
      
     cl::Program program;
 
-	cl::Kernel kernel_processPixelStage1;
+    cl::Kernel kernel_processPixelStage1;
 //     cl::Kernel kernel_filterPixelStage1;
-	cl::Kernel kernel_processPixelStage2;
+    cl::Kernel kernel_processPixelStage2;
 //     cl::Kernel kernel_filterPixelStage2;
 
+    // Read only buffers
+    size_t buf_packet_size;
 
-	// Read only buffers
-	size_t buf_packet_size;
+    cl::Buffer buf_lut11to16;
+    cl::Buffer buf_p0_table;
+    cl::Buffer buf_x_table;
+    cl::Buffer buf_z_table;
 
-	cl::Buffer buf_lut11to16;
-	cl::Buffer buf_p0_table;
-	cl::Buffer buf_x_table;
-	cl::Buffer buf_z_table;
+    cl::Buffer buf_packet;
 
-	cl::Buffer buf_packet;
-
-	// Read-Write buffers
-	size_t buf_a_size;
-	size_t buf_b_size;
-	size_t buf_n_size;
-	size_t buf_ir_size;
+    // Read-Write buffers
+    size_t buf_a_size;
+    size_t buf_b_size;
+    size_t buf_n_size;
+    size_t buf_ir_size;
 //     size_t buf_a_filtered_size;
 //     size_t buf_b_filtered_size;
 //     size_t buf_edge_test_size;
-	size_t buf_depth_size;
-	size_t buf_ir_sum_size;
+    size_t buf_depth_size;
+    size_t buf_ir_sum_size;
 //     size_t buf_filtered_size;
-
-	cl::Buffer buf_a;
-	cl::Buffer buf_b;
-	cl::Buffer buf_n;
-	cl::Buffer buf_ir;
+    
+    cl::Buffer buf_a;
+    cl::Buffer buf_b;
+    cl::Buffer buf_n;
+    cl::Buffer buf_ir;
 //     cl::Buffer buf_a_filtered;
 //     cl::Buffer buf_b_filtered;
 //     cl::Buffer buf_edge_test;
-	cl::Buffer buf_depth;
-	cl::Buffer buf_ir_sum;
+    cl::Buffer buf_depth;
+    cl::Buffer buf_ir_sum;
 //     cl::Buffer buf_filtered;
 
 
     struct Slot {
-
 	std::vector<cl::Event> eventWrite, eventPPS1,  eventPPS2;
 	cl::Event event0, event1;
     };
@@ -242,10 +241,38 @@ generateOptions(const parameters &params, std::string *options)
 
 
 bool
-DecoderCL::setup(cl::Context context,
-		 const parameters &params,
+DecoderCL::setup(const parameters &params,
 		 size_t num_slot)
 {
+    cl_int err = CL_SUCCESS;
+    try { 
+        std::vector<cl::Platform> platforms;
+        cl::Platform::get(&platforms);
+        if (platforms.size() == 0) {
+            std::cout << "Platform size 0\n";
+            return K4W2_ERROR;
+        }
+        cl_context_properties properties[] = 
+	    { CL_CONTEXT_PLATFORM,
+	      (cl_context_properties)(platforms[0])(),
+	      0};
+        context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
+
+	std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+
+	queue   = cl::CommandQueue(context, devices[0], 0, &err);
+    }
+    catch (cl::Error err) {
+	std::cerr 
+            << "ERROR: "
+            << err.what()
+            << "("
+            << err.err()
+            << ")"
+            << std::endl;
+	return false;
+    }
+    
     m_slot.resize(num_slot);
     for (size_t i=0; i<num_slot; ++i) {
 	m_slot[i].eventWrite.resize(1);
@@ -270,7 +297,6 @@ DecoderCL::setup(cl::Context context,
 	ABORT("failed to load ");
     }
 
-    cl_int err = CL_SUCCESS;
     try
     {
 	std::string options;
@@ -371,8 +397,7 @@ DecoderCL::setup(cl::Context context,
 }
 
 int
-DecoderCL::set_params(cl::CommandQueue queue,
-		      const kinect2_color_camera_param * color,
+DecoderCL::set_params(const kinect2_color_camera_param * color,
 		      const kinect2_depth_camera_param * depth,
 		      const kinect2_p0table * p0table)
 {
@@ -443,8 +468,7 @@ DecoderCL::set_params(cl::CommandQueue queue,
 
 
 bool
-DecoderCL::request(cl::CommandQueue queue,
-		   int slot, const void *ptr, int length)
+DecoderCL::request(int slot, const void *ptr, int length)
 {
     if (KINECT2_DEPTH_FRAME_SIZE*10 != length) {
 	return false;
@@ -480,7 +504,7 @@ DecoderCL::request(cl::CommandQueue queue,
 }
 
 bool
-DecoderCL::fetch(cl::CommandQueue queue, int slot, void *dst, int dst_length)
+DecoderCL::fetch(int slot, void *dst, int dst_length)
 {
     Slot& s = m_slot[slot];
     try
@@ -517,55 +541,26 @@ BEGIN_EXTERN_C
 struct depth_cl {
     struct k4w2_decoder_ctx decoder; 
     DecoderCL dcl;
-    cl::Context context;
-    cl::CommandQueue queue;
 };
 
 static int
 depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
 {
-    depth_cl * d = (depth_cl *)ctx;
 
     if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_DEPTH)
 	return K4W2_ERROR;
     if ( type & K4W2_DECODER_DISABLE_OPENCL )
 	return K4W2_ERROR;
 
-    // placement new to initialize DecoderCL
+    depth_cl * d = (depth_cl *)ctx;
+
+    // placement new to initialize OpenCL's variables
     new (&d->dcl) DecoderCL;
-
-    cl_int err = CL_SUCCESS;
-    try { 
-        std::vector<cl::Platform> platforms;
-        cl::Platform::get(&platforms);
-        if (platforms.size() == 0) {
-            std::cout << "Platform size 0\n";
-            return K4W2_ERROR;
-        }
-        cl_context_properties properties[] = 
-	    { CL_CONTEXT_PLATFORM,
-	      (cl_context_properties)(platforms[0])(),
-	      0};
-        d->context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
-
-	std::vector<cl::Device> devices = d->context.getInfo<CL_CONTEXT_DEVICES>();
-
-	d->queue   = cl::CommandQueue(d->context, devices[0], 0, &err);
-    }
-    catch (cl::Error err) {
-	std::cerr 
-            << "ERROR: "
-            << err.what()
-            << "("
-            << err.err()
-            << ")"
-            << std::endl;
-    }
 
     parameters params;
     init_params(&params);
 
-    if (! d->dcl.setup(d->context, params, ctx->num_slot) ) {
+    if (! d->dcl.setup(params, ctx->num_slot) ) {
 	return K4W2_ERROR;
     }
 
@@ -580,14 +575,14 @@ depth_cl_set_params(k4w2_decoder_t ctx,
 		     struct kinect2_p0table * p0table)
 {
     depth_cl * d = (depth_cl *)ctx;
-    return d->dcl.set_params(d->queue, color, depth, p0table);
+    return d->dcl.set_params(color, depth, p0table);
 }
 
 static int
 depth_cl_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
 {
     depth_cl * d = (depth_cl *)ctx;
-    bool r = d->dcl.request(d->queue, slot, src, src_length);
+    bool r = d->dcl.request(slot, src, src_length);
     return r?K4W2_SUCCESS:K4W2_ERROR;
 }
 
@@ -595,7 +590,7 @@ static int
 depth_cl_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 {
     depth_cl * d = (depth_cl *)ctx;
-    bool r = d->dcl.fetch(d->queue, slot, dst, dst_length);
+    bool r = d->dcl.fetch(slot, dst, dst_length);
     return r?K4W2_SUCCESS:K4W2_ERROR;
     
 }
