@@ -48,6 +48,15 @@
 
 #define IMAGE_SIZE (512 * 424)
 
+const size_t buf_packet_size = KINECT2_DEPTH_FRAME_SIZE * 10;
+
+const size_t buf_a_size = IMAGE_SIZE * sizeof(cl_float3);
+const size_t buf_b_size = IMAGE_SIZE * sizeof(cl_float3);
+const size_t buf_n_size = IMAGE_SIZE * sizeof(cl_float3);
+const size_t buf_ir_size = IMAGE_SIZE * sizeof(cl_float);
+const size_t buf_depth_size = IMAGE_SIZE * sizeof(cl_float);
+const size_t buf_ir_sum_size = IMAGE_SIZE * sizeof(cl_float);
+
 struct parameters {
      float ab_multiplier;
      float ab_multiplier_per_frq[3];
@@ -85,51 +94,37 @@ public:
 private:
     cl::Context context;
     cl::CommandQueue queue;
-     
+
     cl::Program program;
 
-    cl::Kernel kernel_processPixelStage1;
-//     cl::Kernel kernel_filterPixelStage1;
-    cl::Kernel kernel_processPixelStage2;
-//     cl::Kernel kernel_filterPixelStage2;
-
     // Read only buffers
-    size_t buf_packet_size;
-
     cl::Buffer buf_lut11to16;
     cl::Buffer buf_p0_table;
     cl::Buffer buf_x_table;
     cl::Buffer buf_z_table;
 
-    cl::Buffer buf_packet;
-
-    // Read-Write buffers
-    size_t buf_a_size;
-    size_t buf_b_size;
-    size_t buf_n_size;
-    size_t buf_ir_size;
-//     size_t buf_a_filtered_size;
-//     size_t buf_b_filtered_size;
-//     size_t buf_edge_test_size;
-    size_t buf_depth_size;
-    size_t buf_ir_sum_size;
-//     size_t buf_filtered_size;
-    
-    cl::Buffer buf_a;
-    cl::Buffer buf_b;
-    cl::Buffer buf_n;
-    cl::Buffer buf_ir;
-//     cl::Buffer buf_a_filtered;
-//     cl::Buffer buf_b_filtered;
-//     cl::Buffer buf_edge_test;
-    cl::Buffer buf_depth;
-    cl::Buffer buf_ir_sum;
-//     cl::Buffer buf_filtered;
-
-
     struct Slot {
+	cl::Kernel kernel_processPixelStage1;
+	cl::Kernel kernel_processPixelStage2;
+
+	cl::Buffer buf_packet;
+
+	cl::Buffer buf_a;
+	cl::Buffer buf_b;
+	cl::Buffer buf_n;
+	cl::Buffer buf_ir;
+	cl::Buffer buf_depth;
+	cl::Buffer buf_ir_sum;
+
 	std::vector<cl::Event> eventWrite, eventPPS1,  eventPPS2;
 	cl::Event event0, event1;
+
+	void create(cl::Context context,
+		    cl::Program program,
+		    cl::Buffer buf_lut11to16,
+		    cl::Buffer buf_p0_table,
+		    cl::Buffer buf_z_table,
+		    cl::Buffer buf_x_table);
     };
     std::vector<Slot> m_slot;
 };
@@ -200,20 +195,6 @@ generateOptions(const parameters &params, std::string *options)
      oss << " -D PHASE_IN_RAD1=" << params.phase_in_rad[1] << "f";
      oss << " -D PHASE_IN_RAD2=" << params.phase_in_rad[2] << "f";
 
-     // oss << " -D JOINT_BILATERAL_AB_THRESHOLD=" << params.joint_bilateral_ab_threshold << "f";
-     // oss << " -D JOINT_BILATERAL_MAX_EDGE=" << params.joint_bilateral_max_edge << "f";
-     // oss << " -D JOINT_BILATERAL_EXP=" << params.joint_bilateral_exp << "f";
-     // oss << " -D JOINT_BILATERAL_THRESHOLD=" << (params.joint_bilateral_ab_threshold * params.joint_bilateral_ab_threshold) / (params.ab_multiplier * params.ab_multiplier) << "f";
-     // oss << " -D GAUSSIAN_KERNEL_0=" << params.gaussian_kernel[0] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_1=" << params.gaussian_kernel[1] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_2=" << params.gaussian_kernel[2] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_3=" << params.gaussian_kernel[3] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_4=" << params.gaussian_kernel[4] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_5=" << params.gaussian_kernel[5] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_6=" << params.gaussian_kernel[6] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_7=" << params.gaussian_kernel[7] << "f";
-     // oss << " -D GAUSSIAN_KERNEL_8=" << params.gaussian_kernel[8] << "f";
-
      oss << " -D PHASE_OFFSET=" << params.phase_offset << "f";
      oss << " -D UNAMBIGIOUS_DIST=" << params.unambigious_dist << "f";
      oss << " -D INDIVIDUAL_AB_THRESHOLD=" << params.individual_ab_threshold << "f";
@@ -223,22 +204,51 @@ generateOptions(const parameters &params, std::string *options)
      oss << " -D MIN_DEALIAS_CONFIDENCE=" << params.min_dealias_confidence << "f";
      oss << " -D MAX_DEALIAS_CONFIDENCE=" << params.max_dealias_confidence << "f";
 
-/*
-     oss << " -D EDGE_AB_AVG_MIN_VALUE=" << params.edge_ab_avg_min_value << "f";
-     oss << " -D EDGE_AB_STD_DEV_THRESHOLD=" << params.edge_ab_std_dev_threshold << "f";
-     oss << " -D EDGE_CLOSE_DELTA_THRESHOLD=" << params.edge_close_delta_threshold << "f";
-     oss << " -D EDGE_FAR_DELTA_THRESHOLD=" << params.edge_far_delta_threshold << "f";
-     oss << " -D EDGE_MAX_DELTA_THRESHOLD=" << params.edge_max_delta_threshold << "f";
-     oss << " -D EDGE_AVG_DELTA_THRESHOLD=" << params.edge_avg_delta_threshold << "f";
-     oss << " -D MAX_EDGE_COUNT=" << params.max_edge_count << "f";
-*/
-     
-/*     oss << " -D MIN_DEPTH=" << params.min_depth * 1000.0f << "f";
-     oss << " -D MAX_DEPTH=" << config.MaxDepth * 1000.0f << "f";
-*/
      *options = oss.str();
 }
 
+
+void
+DecoderCL::Slot::create(cl::Context context,
+			cl::Program program,
+			cl::Buffer buf_lut11to16,
+			cl::Buffer buf_p0_table,
+			cl::Buffer buf_x_table,
+			cl::Buffer buf_z_table)
+{
+    cl_int err;
+    buf_packet = cl::Buffer(context, CL_READ_ONLY_CACHE, buf_packet_size, NULL, &err);
+
+    buf_a = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_a_size, NULL, &err);
+    buf_b = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_b_size, NULL, &err);
+    buf_n = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_n_size, NULL, &err);
+    buf_ir = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_size, NULL, &err);
+
+    buf_depth = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_depth_size, NULL, &err);
+    buf_ir_sum = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_sum_size, NULL, &err);
+
+    eventWrite.resize(1);
+    eventPPS1.resize(1);
+    eventPPS2.resize(1);
+
+    kernel_processPixelStage1 = cl::Kernel(program, "processPixelStage1", &err);
+    kernel_processPixelStage1.setArg(0, buf_lut11to16);
+    kernel_processPixelStage1.setArg(1, buf_z_table);
+    kernel_processPixelStage1.setArg(2, buf_p0_table);
+    kernel_processPixelStage1.setArg(3, buf_packet);
+    kernel_processPixelStage1.setArg(4, buf_a);
+    kernel_processPixelStage1.setArg(5, buf_b);
+    kernel_processPixelStage1.setArg(6, buf_n);
+    kernel_processPixelStage1.setArg(7, buf_ir);
+
+    kernel_processPixelStage2 = cl::Kernel(program, "processPixelStage2", &err);
+    kernel_processPixelStage2.setArg(0, buf_a);
+    kernel_processPixelStage2.setArg(1, buf_b);
+    kernel_processPixelStage2.setArg(2, buf_x_table);
+    kernel_processPixelStage2.setArg(3, buf_z_table);
+    kernel_processPixelStage2.setArg(4, buf_depth);
+    kernel_processPixelStage2.setArg(5, buf_ir_sum);
+}
 
 bool
 DecoderCL::setup(const parameters &params,
@@ -272,16 +282,8 @@ DecoderCL::setup(const parameters &params,
             << std::endl;
 	return false;
     }
-    
-    m_slot.resize(num_slot);
-    for (size_t i=0; i<num_slot; ++i) {
-	m_slot[i].eventWrite.resize(1);
-	m_slot[i].eventPPS1.resize(1);
-	m_slot[i].eventPPS2.resize(1);
-    }
-    
+
     static const char *searchpath[] = {
-	".",
 	K4W2_SRCDIR"/decoder_cl",
 	K4W2_DATADIR,
     };
@@ -308,81 +310,31 @@ DecoderCL::setup(const parameters &params,
 	program = cl::Program(context, src);
 	program.build(options.c_str());
 
-	//Read only
-	buf_packet_size = KINECT2_DEPTH_FRAME_SIZE * 10;
-
-	buf_packet = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				buf_packet_size, NULL, &err);
-
-	//Read-Write
-	buf_a_size = IMAGE_SIZE * sizeof(cl_float3);
-	buf_b_size = IMAGE_SIZE * sizeof(cl_float3);
-	buf_n_size = IMAGE_SIZE * sizeof(cl_float3);
-	buf_ir_size = IMAGE_SIZE * sizeof(cl_float);
-//	  buf_a_filtered_size = IMAGE_SIZE * sizeof(cl_float3);
-//	  buf_b_filtered_size = IMAGE_SIZE * sizeof(cl_float3);
-//	  buf_edge_test_size = IMAGE_SIZE * sizeof(cl_uchar);
-	buf_depth_size = IMAGE_SIZE * sizeof(cl_float);
-	buf_ir_sum_size = IMAGE_SIZE * sizeof(cl_float);
-//	  buf_filtered_size = IMAGE_SIZE * sizeof(cl_float);
-
-	buf_a = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_a_size, NULL, &err);
-	buf_b = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_b_size, NULL, &err);
-	buf_n = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_n_size, NULL, &err);
-	buf_ir = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_size, NULL, &err);
-//	  buf_a_filtered = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_a_filtered_size, NULL, &err);
-//	  buf_b_filtered = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_b_filtered_size, NULL, &err);
-//	  buf_edge_test = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_edge_test_size, NULL, &err);
-	buf_depth = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_depth_size, NULL, &err);
-	buf_ir_sum = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_sum_size, NULL, &err);
-//	  buf_filtered = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_filtered_size, NULL, &err);
-
-	buf_lut11to16 = cl::Buffer(context, CL_READ_ONLY_CACHE, 2*2048UL, NULL, &err);
+	buf_lut11to16 = cl::Buffer(context, CL_READ_ONLY_CACHE, 2*2048UL, NULL,
+				   &err);
 	buf_p0_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				  IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+				  IMAGE_SIZE * sizeof(cl_float3), NULL,
+				  &err);
 	buf_x_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				 IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+				 IMAGE_SIZE * sizeof(cl_float3), NULL,
+				 &err);
 	buf_z_table = cl::Buffer(context, CL_READ_ONLY_CACHE,
-				 IMAGE_SIZE * sizeof(cl_float3), NULL, &err);
+				 IMAGE_SIZE * sizeof(cl_float3), NULL,
+				 &err);
 
-
-	kernel_processPixelStage1 = cl::Kernel(program, "processPixelStage1", &err);
-	kernel_processPixelStage1.setArg(0, buf_lut11to16);
-	kernel_processPixelStage1.setArg(1, buf_z_table);
-	kernel_processPixelStage1.setArg(2, buf_p0_table);
-	kernel_processPixelStage1.setArg(3, buf_packet);
-	kernel_processPixelStage1.setArg(4, buf_a);
-	kernel_processPixelStage1.setArg(5, buf_b);
-	kernel_processPixelStage1.setArg(6, buf_n);
-	kernel_processPixelStage1.setArg(7, buf_ir);
-/*
-  kernel_filterPixelStage1 = cl::Kernel(program, "filterPixelStage1", &err);
-  kernel_filterPixelStage1.setArg(0, buf_a);
-  kernel_filterPixelStage1.setArg(1, buf_b);
-  kernel_filterPixelStage1.setArg(2, buf_n);
-  kernel_filterPixelStage1.setArg(3, buf_a_filtered);
-  kernel_filterPixelStage1.setArg(4, buf_b_filtered);
-  kernel_filterPixelStage1.setArg(5, buf_edge_test);
-*/
-	kernel_processPixelStage2 = cl::Kernel(program, "processPixelStage2", &err);
-	kernel_processPixelStage2.setArg(0, buf_a);
-	kernel_processPixelStage2.setArg(1, buf_b);
-	kernel_processPixelStage2.setArg(2, buf_x_table);
-	kernel_processPixelStage2.setArg(3, buf_z_table);
-	kernel_processPixelStage2.setArg(4, buf_depth);
-	kernel_processPixelStage2.setArg(5, buf_ir_sum);
-
-/*	  kernel_filterPixelStage2 = cl::Kernel(program, "filterPixelStage2", &err);
-	  kernel_filterPixelStage2.setArg(0, buf_depth);
-	  kernel_filterPixelStage2.setArg(1, buf_ir_sum);
-	  kernel_filterPixelStage2.setArg(2, buf_edge_test);
-	  kernel_filterPixelStage2.setArg(3, buf_filtered);
-*/
+	m_slot.resize(num_slot);
+	for (size_t i=0; i<num_slot; ++i) {
+	    m_slot[i].create(context,
+			     program,
+			     buf_lut11to16,
+			     buf_p0_table,
+			     buf_x_table,
+			     buf_z_table);
+	}
     }
     catch(const cl::Error &err)
     {
 	VERBOSE("%s %s", err.what() , err.err());
-
 	if(err.err() == CL_BUILD_PROGRAM_FAILURE)
 	{
 /*	    
@@ -390,7 +342,6 @@ DecoderCL::setup(const parameters &params,
 	    std::cout << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(device) << std::endl;
 	    std::cout << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;*/
 	}
-
 	return false;
     }
     return true;
@@ -477,16 +428,16 @@ DecoderCL::request(int slot, const void *ptr, int length)
     Slot& s = m_slot[slot];
     try
     {
-	queue.enqueueWriteBuffer(buf_packet, CL_FALSE, 0, length, ptr,
+	queue.enqueueWriteBuffer(s.buf_packet, CL_FALSE, 0, length, ptr,
 				 NULL, &s.eventWrite[0]);
 
-	queue.enqueueNDRangeKernel(kernel_processPixelStage1,
+	queue.enqueueNDRangeKernel(s.kernel_processPixelStage1,
 				   cl::NullRange,
 				   cl::NDRange(IMAGE_SIZE),
 				   cl::NullRange,
 				   &s.eventWrite, &s.eventPPS1[0]);
 
-	queue.enqueueNDRangeKernel(kernel_processPixelStage2,
+	queue.enqueueNDRangeKernel(s.kernel_processPixelStage2,
 				   cl::NullRange, cl::NDRange(IMAGE_SIZE), cl::NullRange,
 				   &s.eventPPS1, &s.eventPPS2[0]);
     }
@@ -509,10 +460,10 @@ DecoderCL::fetch(int slot, void *dst, int dst_length)
     Slot& s = m_slot[slot];
     try
     {
-	queue.enqueueReadBuffer(buf_ir, CL_FALSE,
+	queue.enqueueReadBuffer(s.buf_ir, CL_FALSE,
 				0, buf_ir_size, (char*)dst + buf_depth_size,
 				&s.eventPPS1, &s.event0);
-	queue.enqueueReadBuffer(buf_depth, CL_FALSE,
+	queue.enqueueReadBuffer(s.buf_depth, CL_FALSE,
 				0, buf_depth_size, dst,
 				&s.eventPPS2, &s.event1);
 	s.event0.wait();
@@ -554,7 +505,8 @@ depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
 
     depth_cl * d = (depth_cl *)ctx;
 
-    // placement new to initialize OpenCL's variables
+    // Call placement new to initialize OpenCL's variables
+    // because it was allocated by malloc()
     new (&d->dcl) DecoderCL;
 
     parameters params;
@@ -592,7 +544,6 @@ depth_cl_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
     depth_cl * d = (depth_cl *)ctx;
     bool r = d->dcl.fetch(slot, dst, dst_length);
     return r?K4W2_SUCCESS:K4W2_ERROR;
-    
 }
 
 static int
@@ -600,7 +551,7 @@ depth_cl_close(k4w2_decoder_t ctx)
 {
     depth_cl * d = (depth_cl *)ctx;
 
-    // call destructor explicitly
+    // Call destructor explicitly because it was allocated by malloc()
     d->dcl.~DecoderCL();
 }
 
