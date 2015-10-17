@@ -82,6 +82,7 @@ typedef struct {
 		      struct kinect2_color_camera_param * color,
 		      struct kinect2_depth_camera_param * depth,
 		      struct kinect2_p0table * p0table);
+    int (*get_gl_texture)(k4w2_decoder_t decoder, int slot, unsigned int options, unsigned int *texturename);
     int (*request)(k4w2_decoder_t ctx, int slot, const void *src, int src_length);
     int (*wait)(k4w2_decoder_t ctx, int slot);
     int (*fetch)(k4w2_decoder_t ctx, int slot, void *dst, int dst_length);
@@ -92,7 +93,7 @@ typedef struct {
  * @struct k4w2_decoder_ctx  module.h
  */
 struct k4w2_decoder_ctx {
-    const k4w2_decoder_ops *ops;
+    k4w2_decoder_ops ops;
     int num_slot;
 };
 

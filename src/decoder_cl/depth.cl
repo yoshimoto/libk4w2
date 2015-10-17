@@ -56,8 +56,14 @@ float2 processMeasurementTriple(const float ab_multiplier_per_frq, const float p
     return (float2)(dot(v, p0cos), dot(v, p0sin)) * ab_multiplier_per_frq;
 }
 
-void kernel processPixelStage1(global const short *lut11to16, global const float *z_table, global const float3 *p0_table, global const ushort *data,
-                               global float3 *a_out, global float3 *b_out, global float3 *n_out, global float *ir_out)
+void kernel processPixelStage1(global const short *lut11to16,
+			       global const float *z_table,
+			       global const float3 *p0_table,
+			       global const ushort *data,
+                               global float3 *a_out,
+			       global float3 *b_out,
+			       global float3 *n_out,
+			       __write_only image2d_t ir_out)
 {
     const uint i = get_global_id(0);
 
@@ -100,17 +106,25 @@ void kernel processPixelStage1(global const short *lut11to16, global const float
     a_out[i] = a;
     b_out[i] = b;
     n_out[i] = n;
-    ir_out[i] = min(dot(select(n, (float3)(65535.0f), saturated), (float3)(0.333333333f  * AB_MULTIPLIER * AB_OUTPUT_MULTIPLIER)), 65535.0f);
+    write_imagef(ir_out, (int2)(x,y),
+		 	 min(dot(select(n, (float3)(65535.0f), saturated),
+				  (float3)(0.333333333f  * AB_MULTIPLIER * AB_OUTPUT_MULTIPLIER)), 65535.0f)	)		;
 }
 
 
 /*******************************************************************************
  * Process pixel stage 2
  ******************************************************************************/
-void kernel processPixelStage2(global const float3 *a_in, global const float3 *b_in, global const float *x_table, global const float *z_table,
-                               global float *depth, global float *ir_sums)
+void kernel processPixelStage2(global const float3 *a_in,
+			       global const float3 *b_in,
+			       global const float *x_table,
+			       global const float *z_table,
+			       __write_only image2d_t depth_out)
 {
     const uint i = get_global_id(0);
+    const uint x = i % 512;
+    const uint y = i / 512;
+
     float3 a = a_in[i];
     float3 b = b_in[i];
 
@@ -209,7 +223,7 @@ void kernel processPixelStage2(global const float3 *a_in, global const float3 *b
     depth_fit = depth_fit < 0.0f ? 0.0f : depth_fit;
 
     float d = cond1 ? depth_fit : depth_linear; // r1.y -> later r2.z
-    depth[i] = d;
-    ir_sums[i] = ir_sum;
+
+    write_imagef(depth_out, (int2)(x,y), d);
 }
 

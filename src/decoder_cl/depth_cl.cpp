@@ -23,6 +23,21 @@
  * Binary distributions must follow the binary distribution requirements of
  * either License.
  */
+#if defined(HAVE_GLEW)
+#include <GL/glew.h>
+#define CHECK_GL() do {							\
+	GLenum e;							\
+	while ( (e = glGetError()) != GL_NO_ERROR ) {			\
+	    VERBOSE("glGetError() returns '%s'",			\
+		    glewGetErrorString(e) );				\
+	}								\
+    } while(0)
+#  if defined(__APPLE__ ) || defined(__MACOSX)
+#  elif defined(WIN32)
+#  else
+#  include <GL/glx.h>
+#  endif
+#endif
 
 #include <iostream>
 #include <fstream>
@@ -49,13 +64,11 @@
 #define IMAGE_SIZE (512 * 424)
 
 const size_t buf_packet_size = KINECT2_DEPTH_FRAME_SIZE * 10;
-
 const size_t buf_a_size = IMAGE_SIZE * sizeof(cl_float3);
 const size_t buf_b_size = IMAGE_SIZE * sizeof(cl_float3);
 const size_t buf_n_size = IMAGE_SIZE * sizeof(cl_float3);
 const size_t buf_ir_size = IMAGE_SIZE * sizeof(cl_float);
 const size_t buf_depth_size = IMAGE_SIZE * sizeof(cl_float);
-const size_t buf_ir_sum_size = IMAGE_SIZE * sizeof(cl_float);
 
 struct parameters {
      float ab_multiplier;
@@ -84,13 +97,14 @@ struct parameters {
 class DecoderCL
 {
 public:
-    bool setup(const parameters &params, size_t num_slot);
+    bool setup(const parameters &params, size_t num_slot, unsigned int type);
     int set_params(const kinect2_color_camera_param * color,
 		   const kinect2_depth_camera_param * depth,
 		   const kinect2_p0table * p0table);
 
     bool request(int slot, const void *ptr, int length);
     bool fetch(int slot, void *dst, int dst_length);
+    bool get_gl_texture(int slot, unsigned int option, unsigned int *texture);
 private:
     cl::Context context;
     cl::CommandQueue queue;
@@ -103,6 +117,7 @@ private:
     cl::Buffer buf_x_table;
     cl::Buffer buf_z_table;
 
+    friend struct Slot;
     struct Slot {
 	cl::Kernel kernel_processPixelStage1;
 	cl::Kernel kernel_processPixelStage2;
@@ -112,21 +127,26 @@ private:
 	cl::Buffer buf_a;
 	cl::Buffer buf_b;
 	cl::Buffer buf_n;
-	cl::Buffer buf_ir;
-	cl::Buffer buf_depth;
-	cl::Buffer buf_ir_sum;
 
+#if defined(HAVE_GLEW)
+	union {
+	    struct {
+		GLuint depth;
+		GLuint ir;
+	    };
+	    GLuint name[2];
+	} texture;
+#endif
+
+	cl::Image2D image[2]; // 0:depth, 1:ir
 	std::vector<cl::Event> eventWrite, eventPPS1,  eventPPS2;
 	cl::Event event0, event1;
 
-	void create(cl::Context context,
-		    cl::Program program,
-		    cl::Buffer buf_lut11to16,
-		    cl::Buffer buf_p0_table,
-		    cl::Buffer buf_z_table,
-		    cl::Buffer buf_x_table);
+	void create(const DecoderCL *self, size_t slot, unsigned int type);
     };
     std::vector<Slot> m_slot;
+
+    unsigned int m_type;
 };
 
 
@@ -209,77 +229,174 @@ generateOptions(const parameters &params, std::string *options)
 
 
 void
-DecoderCL::Slot::create(cl::Context context,
-			cl::Program program,
-			cl::Buffer buf_lut11to16,
-			cl::Buffer buf_p0_table,
-			cl::Buffer buf_x_table,
-			cl::Buffer buf_z_table)
+DecoderCL::Slot::create(const DecoderCL *self, const size_t slot, const unsigned int type)
 {
     cl_int err;
-    buf_packet = cl::Buffer(context, CL_READ_ONLY_CACHE, buf_packet_size, NULL, &err);
+    buf_packet = cl::Buffer(self->context, CL_READ_ONLY_CACHE, buf_packet_size, NULL, &err);
 
-    buf_a = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_a_size, NULL, &err);
-    buf_b = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_b_size, NULL, &err);
-    buf_n = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_n_size, NULL, &err);
-    buf_ir = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_size, NULL, &err);
+    buf_a = cl::Buffer(self->context, CL_READ_WRITE_CACHE, buf_a_size, NULL, &err);
+    buf_b = cl::Buffer(self->context, CL_READ_WRITE_CACHE, buf_b_size, NULL, &err);
+    buf_n = cl::Buffer(self->context, CL_READ_WRITE_CACHE, buf_n_size, NULL, &err);
 
-    buf_depth = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_depth_size, NULL, &err);
-    buf_ir_sum = cl::Buffer(context, CL_READ_WRITE_CACHE, buf_ir_sum_size, NULL, &err);
+    cl::ImageFormat format;
+    format.image_channel_order = CL_R;
+    format.image_channel_data_type = CL_FLOAT;
+
+#if defined(HAVE_GLEW)
+    if (type & K4W2_DECODER_ENABLE_OPENGL) {
+	glGenTextures(2, &texture.name[0]);
+	for (size_t i = 0; i < 2; ++i) {
+	    glBindTexture(GL_TEXTURE_2D, texture.name[i]);
+	    glTexStorage2D(GL_TEXTURE_2D,
+			   1,
+			   GL_R32F,
+			   512, 424);
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	    CHECK_GL();
+	    image[i]() = clCreateFromGLTexture(self->context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0,
+					       texture.name[i], &err);
+	    if (CL_SUCCESS != err) {
+		ABORT("failed, err: %d", err);
+	    }
+	}
+    } else {
+	for (size_t i = 0; i < 2; ++i) {
+	    texture.name[i] = 0;
+	    image[i] = cl::Image2D(self->context, CL_READ_WRITE_CACHE, format,
+				   512, 424, 0, NULL, &err);
+	}
+    }
+#else
+    for (size_t i = 0; i < 2; ++i) {
+	image[i] = cl::Image2D(self->context, CL_READ_WRITE_CACHE, format,
+			       512, 424, 0, NULL, &err);
+    }
+#endif
 
     eventWrite.resize(1);
     eventPPS1.resize(1);
     eventPPS2.resize(1);
 
-    kernel_processPixelStage1 = cl::Kernel(program, "processPixelStage1", &err);
-    kernel_processPixelStage1.setArg(0, buf_lut11to16);
-    kernel_processPixelStage1.setArg(1, buf_z_table);
-    kernel_processPixelStage1.setArg(2, buf_p0_table);
-    kernel_processPixelStage1.setArg(3, buf_packet);
-    kernel_processPixelStage1.setArg(4, buf_a);
-    kernel_processPixelStage1.setArg(5, buf_b);
-    kernel_processPixelStage1.setArg(6, buf_n);
-    kernel_processPixelStage1.setArg(7, buf_ir);
-
-    kernel_processPixelStage2 = cl::Kernel(program, "processPixelStage2", &err);
-    kernel_processPixelStage2.setArg(0, buf_a);
-    kernel_processPixelStage2.setArg(1, buf_b);
-    kernel_processPixelStage2.setArg(2, buf_x_table);
-    kernel_processPixelStage2.setArg(3, buf_z_table);
-    kernel_processPixelStage2.setArg(4, buf_depth);
-    kernel_processPixelStage2.setArg(5, buf_ir_sum);
+    try { 
+	kernel_processPixelStage1 = cl::Kernel(self->program, "processPixelStage1");
+	kernel_processPixelStage1.setArg(0, self->buf_lut11to16);
+	kernel_processPixelStage1.setArg(1, self->buf_z_table);
+	kernel_processPixelStage1.setArg(2, self->buf_p0_table);
+	kernel_processPixelStage1.setArg(3, buf_packet);
+	kernel_processPixelStage1.setArg(4, buf_a);
+	kernel_processPixelStage1.setArg(5, buf_b);
+	kernel_processPixelStage1.setArg(6, buf_n);
+	kernel_processPixelStage1.setArg(7, image[1]);
+	
+	kernel_processPixelStage2 = cl::Kernel(self->program, "processPixelStage2");
+	kernel_processPixelStage2.setArg(0, buf_a);
+	kernel_processPixelStage2.setArg(1, buf_b);
+	kernel_processPixelStage2.setArg(2, self->buf_x_table);
+	kernel_processPixelStage2.setArg(3, self->buf_z_table);
+	kernel_processPixelStage2.setArg(4, image[0]);
+    }
+    catch (cl::Error err) {
+	ABORT("%s %x", err.what(), err.err());
+    }
 }
+
+#if defined(__APPLE__ ) || defined(__MACOSX)
+static void *get_current_cgl_share_group()
+{
+    // Get current CGL Context and CGL Share group
+    CGLContextObj kCGLContext = CGLGetCurrentContext();
+    CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext);
+    return kCGLShareGroup;
+}
+#endif // #if defined(__APPLE__ ) || defined(__MACOSX)
+
+#if defined(HAVE_GLEW)
+static bool check_opengl_context(cl_device_id device_id)
+{
+
+#if defined(__APPLE__) || defined(MACOSX)
+    if (!get_current_cgl_share_group()) {
+	VERBOSE("No CGLContext attached.");
+	return false;
+    }
+#elif defined(WIN32)
+    if (!(wglGetCurrentContext() && wglGetCurrentDC())) {
+	VERBOSE("No OpenGL context attached");
+	return false;
+    }
+#else
+    if (!(glXGetCurrentContext() && glXGetCurrentDisplay())) {
+	VERBOSE("No GLX context attached.");
+	return false;
+    }
+#endif
+
+#if defined(__APPLE__) || defined(MACOSX)
+    static const char * CL_GL_SHARING_EXT = "cl_APPLE_gl_sharing";
+#else
+    static const char * CL_GL_SHARING_EXT = "cl_khr_gl_sharing";
+#endif
+
+    size_t ext_size = 2*1024;
+    std::vector<char> ext_string(ext_size);
+    cl_int err;
+    err = clGetDeviceInfo(device_id, CL_DEVICE_EXTENSIONS,
+			  ext_size, &ext_string[0], &ext_size);
+    if (err != CL_SUCCESS) {
+	return false;
+    }
+    if (NULL == strcasestr(&ext_string[0], CL_GL_SHARING_EXT)) {
+	VERBOSE("%s is not supported", CL_GL_SHARING_EXT);
+	return false;
+    }
+    return true;
+}
+
+#endif /* #if defined(HAVE_GLEW) */
 
 bool
 DecoderCL::setup(const parameters &params,
-		 size_t num_slot)
+		 size_t num_slot,
+		 const unsigned int type)
 {
+    m_type = type;
+
     cl_int err = CL_SUCCESS;
+    std::vector<cl::Device> devices;
     try { 
         std::vector<cl::Platform> platforms;
         cl::Platform::get(&platforms);
         if (platforms.size() == 0) {
             std::cout << "Platform size 0\n";
-            return K4W2_ERROR;
+            return false;
         }
-        cl_context_properties properties[] = 
-	    { CL_CONTEXT_PLATFORM,
-	      (cl_context_properties)(platforms[0])(),
-	      0};
+
+        cl_context_properties properties[] = {
+	    CL_CONTEXT_PLATFORM,
+	    (cl_context_properties)(platforms[0])(),
+#if defined(__APPLE__) || defined (MACOSX)
+	    CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE,
+	    (cl_context_properties)get_current_cgl_share_group(),
+#elif defined(WIN32)
+	    CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+	    CL_WGL_HDC_KHR,  (cl_context_properties)wglGetCurrentDC(),
+#else
+	    CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(),
+	    CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(),
+#endif
+	    
+	    0};
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
 
-	std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+	devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
 	queue   = cl::CommandQueue(context, devices[0], 0, &err);
     }
     catch (cl::Error err) {
-	std::cerr 
-            << "ERROR: "
-            << err.what()
-            << "("
-            << err.err()
-            << ")"
-            << std::endl;
+	VERBOSE("%s %x", err.what(), err.err() );
 	return false;
     }
 
@@ -299,11 +416,16 @@ DecoderCL::setup(const parameters &params,
 	ABORT("failed to load ");
     }
 
-    try
-    {
+#if defined(HAVE_GLEW)
+    if ( m_type & K4W2_DECODER_ENABLE_OPENGL ) {
+	check_opengl_context(devices[0]());
+    }
+
+#endif
+
+    try {
 	std::string options;
 	generateOptions(params, &options);
-
 	cl::Program::Sources src(1,
 				 std::make_pair(sourcecode,
 						sourcelength));
@@ -324,24 +446,19 @@ DecoderCL::setup(const parameters &params,
 
 	m_slot.resize(num_slot);
 	for (size_t i=0; i<num_slot; ++i) {
-	    m_slot[i].create(context,
-			     program,
-			     buf_lut11to16,
-			     buf_p0_table,
-			     buf_x_table,
-			     buf_z_table);
+	    m_slot[i].create(this, i, m_type);
 	}
     }
     catch(const cl::Error &err)
     {
-	VERBOSE("%s %s", err.what() , err.err());
+	VERBOSE("%s %x", err.what(), err.err() );
 	if(err.err() == CL_BUILD_PROGRAM_FAILURE)
 	{
-/*	    
-	    std::cout << "Build Status: " << program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(device) << std::endl;
-	    std::cout << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(device) << std::endl;
-	    std::cout << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;*/
+	    std::cerr << "Build Status: " << program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
+	    std::cerr << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
+	    std::cerr << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
 	}
+	ABORT("abort.");
 	return false;
     }
     return true;
@@ -353,7 +470,6 @@ DecoderCL::set_params(const kinect2_color_camera_param * color,
 		      const kinect2_p0table * p0table)
 {
     static const char *searchpath[] = {
-	".",
 	K4W2_SRCDIR,
 	K4W2_DATADIR,
     };
@@ -412,7 +528,7 @@ DecoderCL::set_params(const kinect2_color_camera_param * color,
     }
     catch(const cl::Error &err)
     {
-	VERBOSE("%s %s", err.what() , err.err());
+	VERBOSE("%s %x", err.what(), err.err() );
     }
     return K4W2_SUCCESS;
 }
@@ -428,8 +544,17 @@ DecoderCL::request(int slot, const void *ptr, int length)
     Slot& s = m_slot[slot];
     try
     {
+	std::vector<cl::Memory> objs;
+	objs.push_back(s.image[0]);
+	objs.push_back(s.image[1]);
+
 	queue.enqueueWriteBuffer(s.buf_packet, CL_FALSE, 0, length, ptr,
 				 NULL, &s.eventWrite[0]);
+
+#if defined(HAVE_GLEW)
+	if (m_type & K4W2_DECODER_ENABLE_OPENGL)
+	    queue.enqueueAcquireGLObjects(&objs);
+#endif
 
 	queue.enqueueNDRangeKernel(s.kernel_processPixelStage1,
 				   cl::NullRange,
@@ -440,18 +565,39 @@ DecoderCL::request(int slot, const void *ptr, int length)
 	queue.enqueueNDRangeKernel(s.kernel_processPixelStage2,
 				   cl::NullRange, cl::NDRange(IMAGE_SIZE), cl::NullRange,
 				   &s.eventPPS1, &s.eventPPS2[0]);
+
+#if defined(HAVE_GLEW)
+	if (m_type & K4W2_DECODER_ENABLE_OPENGL)
+	    queue.enqueueReleaseGLObjects(&objs);
+#endif
     }
     catch (const cl::Error & err) {
-	std::cerr 
-            << "ERROR: "
-            << err.what()
-            << "("
-            << err.err()
-            << ")"
-            << std::endl;
+	VERBOSE("%s %x", err.what(), err.err() );
 	return false;
     }
     return true;
+}
+
+bool
+DecoderCL::get_gl_texture(int slot, unsigned int option, unsigned int *texture)
+{
+#if defined(HAVE_GLEW)
+    int idx = (0==option)?0:1;
+    Slot& s = m_slot[slot];
+    *texture = s.texture.name[idx];
+    return true;
+#else
+    return false;
+#endif
+}
+
+static cl::size_t<3> mk_cl_size3(int x, int y, int z)
+{
+    cl::size_t<3> tmp;
+    tmp[0] = x;
+    tmp[1] = y;
+    tmp[2] = z;
+    return tmp;
 }
 
 bool
@@ -460,28 +606,27 @@ DecoderCL::fetch(int slot, void *dst, int dst_length)
     Slot& s = m_slot[slot];
     try
     {
-	queue.enqueueReadBuffer(s.buf_ir, CL_FALSE,
-				0, buf_ir_size, (char*)dst + buf_depth_size,
-				&s.eventPPS1, &s.event0);
-	queue.enqueueReadBuffer(s.buf_depth, CL_FALSE,
-				0, buf_depth_size, dst,
-				&s.eventPPS2, &s.event1);
+	static const cl::size_t<3> origin = mk_cl_size3(0, 0, 0);
+	static const cl::size_t<3> region = mk_cl_size3(512, 424, 1);
+	queue.enqueueReadImage(s.image[1], CL_FALSE,
+			       origin, region,
+			       0,0,
+			       (char*)dst + buf_depth_size,
+			       &s.eventPPS1, &s.event0);
+	queue.enqueueReadImage(s.image[0], CL_FALSE,
+			       origin, region,
+			       0,0,
+			       dst,
+			       &s.eventPPS2, &s.event1);
 	s.event0.wait();
 	s.event1.wait();
     }
     catch (const cl::Error & err) {
-	std::cerr 
-            << "ERROR: "
-            << err.what()
-            << "("
-            << err.err()
-            << ")"
-            << std::endl;
+	VERBOSE("%s %x", err.what(), err.err() );
 	return false;
     }
     return true;
 }
-
 
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C   }
@@ -495,13 +640,15 @@ struct depth_cl {
 };
 
 static int
-depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
+depth_cl_open(k4w2_decoder_t ctx, const unsigned int type)
 {
-
-    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_DEPTH)
+    if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_DEPTH) {
 	return K4W2_ERROR;
-    if ( type & K4W2_DECODER_DISABLE_OPENCL )
+    }
+    if ( type & K4W2_DECODER_DISABLE_OPENCL ) {
+	VERBOSE("K4W2_DECODER_DISABLE_OPENCL is set");
 	return K4W2_ERROR;
+    }
 
     depth_cl * d = (depth_cl *)ctx;
 
@@ -512,7 +659,7 @@ depth_cl_open(k4w2_decoder_t ctx, unsigned int type)
     parameters params;
     init_params(&params);
 
-    if (! d->dcl.setup(params, ctx->num_slot) ) {
+    if (! d->dcl.setup(params, ctx->num_slot, type) ) {
 	return K4W2_ERROR;
     }
 
@@ -547,6 +694,14 @@ depth_cl_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 }
 
 static int
+depth_cl_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int option, unsigned int *texturename)
+{
+    depth_cl * d = (depth_cl *)ctx;
+    bool r = d->dcl.get_gl_texture(slot, option, texturename);
+    return r?K4W2_SUCCESS:K4W2_ERROR;
+}
+
+static int
 depth_cl_close(k4w2_decoder_t ctx)
 {
     depth_cl * d = (depth_cl *)ctx;
@@ -561,7 +716,9 @@ REGISTER_MODULE(k4w2_decoder_depth_cl_init)
     ops.open	= depth_cl_open;
     ops.set_params = depth_cl_set_params;
     ops.request	= depth_cl_request;
-    //    ops.wait	= depth_cl_wait;
+#if defined(HAVE_GLEW)
+    ops.get_gl_texture = depth_cl_get_gl_texture;
+#endif
     ops.fetch	= depth_cl_fetch;
     ops.close	= depth_cl_close;
     

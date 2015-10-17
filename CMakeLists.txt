@@ -54,11 +54,14 @@ set (PROJECT_VER
 
 find_package(libusb-1.0)
 
+find_package(GLEW)
+
 pkg_check_modules(LIBGPUJPEG libgpujpeg)
 
 k4w2_option(WITH_V4L2       "enable v4l2 driver"       ON IF PROJECT_OS_LINUX)
 k4w2_option(WITH_LIBUSB     "enable libusb-1.0 driver" ON IF LIBUSB_1_FOUND)
 k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder" ON IF LIBGPUJPEG_FOUND)
+k4w2_option(WITH_GLEW       "enable opengl interoperability" ON IF GLEW_FOUND)
 k4w2_option(BUILD_EXAMPLES  "Build example programs" ON)
 
 # Target directories
@@ -81,13 +84,14 @@ endif()
 #
 status(" ***** ")
 status("")
-status("       v4l2 driver : " WITH_V4L2     THEN On ELSE Off)
-status(" libusb-1.0 driver : " WITH_LIBUSB   THEN On ELSE Off)
+status("       v4l2 driver : " WITH_V4L2        THEN Yes     ELSE No)
+status(" libusb-1.0 driver : " WITH_LIBUSB      THEN Yes     ELSE No)
 status("")
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
 status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
 status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
 status("           GPUJPEG : " LIBGPUJPEG_FOUND THEN Yes     ELSE No)
+status("   libGLEW(OpenGL) : " GLEW_FOUND       THEN Yes     ELSE No)
 status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
 status("")

@@ -30,7 +30,8 @@ typedef struct k4w2_decoder_ctx * k4w2_decoder_t;
 #define K4W2_DECODER_TYPE_MASK 0x0f
 #define K4W2_DECODER_DISABLE_OPENCL (1<<5)
 #define K4W2_DECODER_DISABLE_CUDA   (1<<6)
-#define K4W2_DECODER_USE_OPENGL     (1<<7)
+/* Enables OpenGL Interoperability */
+#define K4W2_DECODER_ENABLE_OPENGL  (1<<7)
 
 k4w2_decoder_t k4w2_decoder_open(unsigned int type, int num_slot);
 int k4w2_decoder_set_params(k4w2_decoder_t ctx,
@@ -41,6 +42,9 @@ int k4w2_decoder_request(k4w2_decoder_t ctx, int slot, const void *src, int src_
 int k4w2_decoder_wait(k4w2_decoder_t ctx, int slot);
 int k4w2_decoder_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length);
 void k4w2_decoder_close(k4w2_decoder_t *ctx);
+
+int k4w2_decoder_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int option,
+				unsigned int *texturename);
 
 EXTERN_C_END
 

@@ -7,6 +7,18 @@
  * 
  * 
  */
+#if defined(HAVE_GLEW)
+#include <GL/glew.h>
+#define CHECK_GL() do {							\
+	GLenum e;							\
+	while ( (e = glGetError()) != GL_NO_ERROR ) {			\
+	    VERBOSE("glGetError() returns '%s (0x%X)'",			\
+		    glewGetErrorString(e), e );				\
+	}								\
+    } while(0)
+#else
+#define CHECK_GL() (void)0
+#endif
 
 #include "module.h"
 
@@ -14,13 +26,22 @@
 #  error "gpujpeg is not installed"
 #else
 
+#include <assert.h>
 #include <libgpujpeg/gpujpeg.h>
+
+typedef struct {
+    unsigned int texture_id;
+    struct gpujpeg_decoder_output output;
+    struct gpujpeg_opengl_texture *texture;
+} decoder_slot;
 
 typedef struct {
     struct k4w2_decoder_ctx decoder; 
 
     struct gpujpeg_decoder* cuda;
-    struct gpujpeg_decoder_output output;
+
+    decoder_slot *slot;
+
 } decoder_cuda;
 
 static int
@@ -36,7 +57,7 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
     int flags = 0;
     if (k4w2_debug_level > 1)
 	flags |= GPUJPEG_VERBOSE;
-    if ( type & K4W2_DECODER_USE_OPENGL )
+    if ( type & K4W2_DECODER_ENABLE_OPENGL )
 	flags |= GPUJPEG_OPENGL_INTEROPERABILITY;
 
     /* 
@@ -53,22 +74,29 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 	goto err;
     }
 
-/*    if (0) {
-	struct gpujpeg_parameters param_coder;
-	struct gpujpeg_image_parameters param_image;
-	gpujpeg_set_default_parameters(&param_coder);
-	gpujpeg_image_set_default_parameters(&param_image);
-
-	//param_image.width  = 1920;
-	//param_image.height = 1080;
-	//param_image.comp_count = 3;
-
-	if (gpujpeg_decoder_init(d->cuda, &param_coder, &param_image)) {
-	    VERBOSE("gpujpeg_decoder_init() failed.");
-	    goto err;
+    assert(1 <= ctx->num_slot);
+    d->slot = (decoder_slot*) malloc (sizeof(decoder_slot) * ctx->num_slot);
+    if (type & K4W2_DECODER_ENABLE_OPENGL) {
+	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	    d->slot[s].texture_id = gpujpeg_opengl_texture_create(1920, 1080, NULL);
+	    d->slot[s].texture    =
+		gpujpeg_opengl_texture_register(d->slot[s].texture_id,
+						GPUJPEG_OPENGL_TEXTURE_WRITE);
 	}
-	}*/
-    gpujpeg_decoder_output_set_default(&d->output);
+	CHECK_GL();
+    }
+
+    if (type & K4W2_DECODER_ENABLE_OPENGL) {
+	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	    gpujpeg_decoder_output_set_texture(&d->slot[s].output,
+					       d->slot[s].texture);
+	}
+	CHECK_GL();
+    } else {
+	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	    gpujpeg_decoder_output_set_default(&d->slot[s].output);
+	}
+    }
 
     return K4W2_SUCCESS;
 err:
@@ -81,29 +109,38 @@ color_cuda_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length
 {
     decoder_cuda * d = (decoder_cuda *)ctx;
     struct kinect2_color_header* h = (struct kinect2_color_header*)src;
+    const size_t s = slot % ctx->num_slot;
 
-    gpujpeg_decoder_request(d->cuda,
-			    h->image,
-			    src_length);
+    if (d->slot[s].texture_id) {
+	gpujpeg_decoder_decode(d->cuda, h->image, src_length, &d->slot[s].output);
+    } else {
+	gpujpeg_decoder_request(d->cuda,
+				h->image,
+				src_length);
+    }
     return K4W2_SUCCESS;
 }
-
-/*
-static int
-color_cuda_wait(k4w2_decoder_t ctx, int slot)
-{
-    decoder_cuda * d = (decoder_cuda *)ctx;
-    return K4W2_SUCCESS;
-}
-*/
 
 static int
 color_cuda_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 {
     decoder_cuda * d = (decoder_cuda *)ctx;
-    gpujpeg_decoder_fetch(d->cuda, &d->output);
-    memcpy(dst, d->output.data, dst_length);
+    const size_t s = slot % ctx->num_slot;
+    if (d->slot[s].texture_id) {
+    } else {
+	gpujpeg_decoder_fetch(d->cuda, &d->slot[s].output);
+    }
+    memcpy(dst, d->slot[s].output.data, dst_length);
 
+    return K4W2_SUCCESS;
+}
+
+static int
+color_cuda_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int options, unsigned int *texturename)
+{
+    decoder_cuda * d = (decoder_cuda *)ctx;
+    const size_t s = slot % ctx->num_slot;
+    *texturename = d->slot[s].texture_id;
     return K4W2_SUCCESS;
 }
 
@@ -122,7 +159,7 @@ static const k4w2_decoder_ops ops = {
     .open	= color_cuda_open,
     .set_params = NULL,
     .request	= color_cuda_request,
-/*    .wait	= color_cuda_wait,*/
+    .get_gl_texture = color_cuda_get_gl_texture,
     .fetch	= color_cuda_fetch,
     .close	= color_cuda_close,
 };

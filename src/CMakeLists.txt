@@ -34,6 +34,12 @@ if(WITH_LIBUSB)
   list(APPEND SRC driver_libusb/driver_libusb.c driver_libusb/usb_dev.c driver_libusb/usb_stream.c)
 endif(WITH_LIBUSB)
 
+if(WITH_GLEW)
+  include_directories(${GLEW_INCLUDE_DIRS})
+  link_libraries(${GLEW_LIBRARIES})
+  add_definitions(-DHAVE_GLEW)
+endif()
+
 find_package(TurboJPEG)
 if(TURBOJPEG_FOUND)
   include_directories(${TURBOJPEG_INCLUDE_DIRS})

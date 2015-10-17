@@ -25,8 +25,9 @@
 
 EXTERN_C_BEGIN
 
-#define K4W2_SUCCESS 0		/**< success */
-#define K4W2_ERROR   1		/**< error */
+#define K4W2_SUCCESS        0	/**< success */
+#define K4W2_ERROR         -1	/**< error   */
+#define K4W2_NOT_SUPPORTED -2	/**< not supported */
 
 /** handle for a k4w2 device */
 typedef struct k4w2_driver_ctx * k4w2_t;

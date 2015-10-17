@@ -39,6 +39,21 @@ k4w2_register_decoder(const char *name,
     decoder[i].ctx_size = ctx_size;
 }
 
+static int
+k4w2_decoder_set_params_default(k4w2_decoder_t ctx,
+				struct kinect2_color_camera_param * color,
+				struct kinect2_depth_camera_param * depth,
+				struct kinect2_p0table * p0table)
+{
+    return K4W2_NOT_SUPPORTED;
+}
+
+static int
+k4w2_decoder_wait_default(k4w2_decoder_t ctx, int slot)
+{
+    return K4W2_NOT_SUPPORTED;
+}
+
 k4w2_decoder_t
 allocate_decoder(const k4w2_decoder_ops *ops, int ctx_size)
 {
@@ -47,13 +62,20 @@ allocate_decoder(const k4w2_decoder_ops *ops, int ctx_size)
     assert((size_t)ctx_size >= sizeof(k4w2_decoder_t));
 
     memset(ctx, 0, sizeof(ctx_size));
-    ctx->ops = ops;
+    ctx->ops = *ops;
 
+    assert(ctx->ops.open);
+    if (!ctx->ops.set_params) ctx->ops.set_params = k4w2_decoder_set_params_default;
+    //assert(ctx->ops.get_gl_texture);	
+    assert(ctx->ops.request);
+    if (!ctx->ops.wait) ctx->ops.wait = k4w2_decoder_wait_default;
+    assert(ctx->ops.fetch);
+    assert(ctx->ops.close);
     return ctx;
 }
 
 k4w2_decoder_t
-k4w2_decoder_open(unsigned int type, int num_slot)
+k4w2_decoder_open(const unsigned int type, const int num_slot)
 {
     int i = 0;
     static int firsttime = 1;
@@ -86,9 +108,9 @@ k4w2_decoder_open(unsigned int type, int num_slot)
 
 	ctx->num_slot =  num_slot;
 
-	if (!ctx->ops->open) {
+	if (!ctx->ops.open) {
 	    VERBOSE("internal error; open() is not implemented.");
-	} else if (K4W2_SUCCESS == ctx->ops->open(ctx, type)) {
+	} else if (K4W2_SUCCESS == ctx->ops.open(ctx, type)) {
 	    VERBOSE("%s decoder is selected.", decoder[i].name);
 	    goto exit;
 	} else {
@@ -112,12 +134,7 @@ k4w2_decoder_set_params(k4w2_decoder_t ctx,
 			struct kinect2_p0table * p0table)
 {
     CHECK(ctx);
-    if (!ctx->ops->set_params) {
-	VERBOSE("not implemented");
-	return K4W2_DECODER_DEPTH;
-    }
-
-    return ctx->ops->set_params(ctx, color, depth, p0table);
+    return ctx->ops.set_params(ctx, color, depth, p0table);
 }
 
 
@@ -125,21 +142,32 @@ int
 k4w2_decoder_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
 {
     CHECK(ctx);
-    return ctx->ops->request(ctx, slot, src, src_length);
+    return ctx->ops.request(ctx, slot, src, src_length);
 }
 
 int
 k4w2_decoder_wait(k4w2_decoder_t ctx, int slot)
 {
     CHECK(ctx);
-    return ctx->ops->wait(ctx, slot);
+    return ctx->ops.wait(ctx, slot);
+}
+
+int
+k4w2_decoder_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int option,
+			    unsigned int *texturename)
+{
+    CHECK(ctx);
+    if (ctx->ops.get_gl_texture)
+	return ctx->ops.get_gl_texture(ctx, slot, option, texturename);
+    else
+	return K4W2_NOT_SUPPORTED;
 }
 
 int
 k4w2_decoder_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 {
     CHECK(ctx);
-    return ctx->ops->fetch(ctx, slot, dst, dst_length);
+    return ctx->ops.fetch(ctx, slot, dst, dst_length);
 }
 
 void
@@ -148,7 +176,7 @@ k4w2_decoder_close(k4w2_decoder_t *ctx)
     if(!ctx)
 	return;
     if (*ctx) {
-	(*ctx)->ops->close(*ctx);
+	(*ctx)->ops.close(*ctx);
 	*ctx = 0;
     }
 }
