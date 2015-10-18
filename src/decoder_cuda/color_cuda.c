@@ -47,14 +47,15 @@ typedef struct {
 static int
 color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 {
+    size_t s;
     decoder_cuda * d = (decoder_cuda *)ctx;
+    int flags = 0;
 
     if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_COLOR)
 	goto err;
     if ( type & K4W2_DECODER_DISABLE_CUDA )
 	goto err;
 
-    int flags = 0;
     if (k4w2_debug_level > 1)
 	flags |= GPUJPEG_VERBOSE;
     if ( type & K4W2_DECODER_ENABLE_OPENGL )
@@ -77,7 +78,7 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
     assert(1 <= ctx->num_slot);
     d->slot = (decoder_slot*) malloc (sizeof(decoder_slot) * ctx->num_slot);
     if (type & K4W2_DECODER_ENABLE_OPENGL) {
-	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	for (s = 0 ; s < ctx->num_slot; ++s) {
 	    d->slot[s].texture_id = gpujpeg_opengl_texture_create(1920, 1080, NULL);
 	    d->slot[s].texture    =
 		gpujpeg_opengl_texture_register(d->slot[s].texture_id,
@@ -87,13 +88,13 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
     }
 
     if (type & K4W2_DECODER_ENABLE_OPENGL) {
-	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	for (s = 0 ; s < ctx->num_slot; ++s) {
 	    gpujpeg_decoder_output_set_texture(&d->slot[s].output,
 					       d->slot[s].texture);
 	}
 	CHECK_GL();
     } else {
-	for (size_t s = 0 ; s < ctx->num_slot; ++s) {
+	for (s = 0 ; s < ctx->num_slot; ++s) {
 	    gpujpeg_decoder_output_set_default(&d->slot[s].output);
 	}
     }
