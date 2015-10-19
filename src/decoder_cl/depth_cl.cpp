@@ -25,15 +25,10 @@
  */
 #if defined(HAVE_GLEW)
 #include <GL/glew.h>
-#define CHECK_GL() do {							\
-	GLenum e;							\
-	while ( (e = glGetError()) != GL_NO_ERROR ) {			\
-	    VERBOSE("glGetError() returns '%s'",			\
-		    glewGetErrorString(e) );				\
-	}								\
-    } while(0)
 #  if defined(__APPLE__ ) || defined(__MACOSX)
+#  include <OpenGL/OpenGL.h>
 #  elif defined(WIN32)
+#  include <windows.h> /* not checked yet. */
 #  else
 #  include <GL/glx.h>
 #  endif
@@ -47,7 +42,6 @@
 #if defined(WIN32)
 #define _USE_MATH_DEFINES
 #endif
-
 #include <math.h>
 
 #define __CL_ENABLE_EXCEPTIONS
@@ -60,6 +54,14 @@
 
 #include "module.h"
 #include "libk4w2/kinect2.h"
+
+#define CHECK_GL() do {							\
+	GLenum e;							\
+	while ( (e = glGetError()) != GL_NO_ERROR ) {			\
+	    VERBOSE("glGetError() returns '%s'",			\
+		    glewGetErrorString(e) );				\
+	}								\
+    } while(0)
 
 #define IMAGE_SIZE (512 * 424)
 
@@ -357,6 +359,41 @@ static bool check_opengl_context(cl_device_id device_id)
 
 #endif /* #if defined(HAVE_GLEW) */
 
+
+static void
+setup_cl_context_properties(cl_context_properties prop[], size_t max_size,
+			    cl::Platform platform,
+			    unsigned int type)
+{
+    if (type & K4W2_DECODER_ENABLE_OPENGL) {
+	cl_context_properties tmp[] = {
+	    CL_CONTEXT_PLATFORM,
+	    (cl_context_properties)(platform)(),
+#if defined (HAVE_GLEW) 
+#  if defined(__APPLE__) || defined (MACOSX)
+	    CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE,
+	    (cl_context_properties)get_current_cgl_share_group(),
+#  elif defined(WIN32)
+	    CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+	    CL_WGL_HDC_KHR,  (cl_context_properties)wglGetCurrentDC(),
+#  else
+	    CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(),
+	    CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(),
+#  endif
+#endif /* #if defined (HAVE_GLEW) */
+	    0};
+	assert(sizeof(tmp) <= max_size);
+	memcpy(prop, tmp, sizeof(tmp));
+    } else {
+	cl_context_properties tmp[] = {
+	    CL_CONTEXT_PLATFORM,
+	    (cl_context_properties)(platform)(),
+	    0
+	};
+	memcpy(prop, tmp, sizeof(tmp));
+    }
+}
+
 bool
 DecoderCL::setup(const parameters &params,
 		 size_t num_slot,
@@ -374,21 +411,11 @@ DecoderCL::setup(const parameters &params,
             return false;
         }
 
-        cl_context_properties properties[] = {
-	    CL_CONTEXT_PLATFORM,
-	    (cl_context_properties)(platforms[0])(),
-#if defined(__APPLE__) || defined (MACOSX)
-	    CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE,
-	    (cl_context_properties)get_current_cgl_share_group(),
-#elif defined(WIN32)
-	    CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
-	    CL_WGL_HDC_KHR,  (cl_context_properties)wglGetCurrentDC(),
-#else
-	    CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(),
-	    CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(),
-#endif
-	    
-	    0};
+        cl_context_properties properties[10];
+	setup_cl_context_properties(properties, sizeof(properties),
+				    platforms[0],
+				    type);
+
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties); 
 
 	devices = context.getInfo<CL_CONTEXT_DEVICES>();

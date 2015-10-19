@@ -8,6 +8,7 @@ include (libk4w2util)
 include (FindPkgConfig)
 include (FindOpenMP)
 include (FindOpenCL)
+include (CheckFunctionExists)
 
 
 #
@@ -64,6 +65,21 @@ k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder" ON IF LIBGPUJPEG_FOUND)
 k4w2_option(WITH_GLEW       "enable opengl interoperability" ON IF GLEW_FOUND)
 k4w2_option(BUILD_EXAMPLES  "Build example programs" ON)
 
+
+# check gpujpeg version
+if(WITH_LIBGPUJPEG)
+  cmake_push_check_state(RESET)
+  set(CMAKE_REQUIRED_FLAGS "${LIBGPUJPEG_CFLAGS} ${LIBGPUJPEG_LDFLAGS}")
+  set(CMAKE_REQUIRED_INCLUDES "${LIBGPUJPEG_INCLUDES}")
+  set(CMAKE_REQUIRED_LIBRARIES "${LIBGPUJPEG_LIBRARIES}")
+  CHECK_FUNCTION_EXISTS(gpujpeg_decoder_fetch HAVE_GPUJPEG_DECODER_FETCH)
+  if(NOT HAVE_GPUJPEG_DECODER_FETCH)
+    message(FATAL_ERROR "\n** ERROR **\nlibk4w2 needs modified version of GPUJPEG, which is available at git://git.code.sf.net/u/yosimoto/gpujpeg.\nSee https://github.com/yoshimoto/libk4w2/issues/3 for details.\n")
+  endif(NOT HAVE_GPUJPEG_DECODER_FETCH)
+  cmake_pop_check_state()
+endif(WITH_LIBGPUJPEG)
+
+
 # Target directories
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
@@ -90,8 +106,8 @@ status("")
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
 status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
 status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
-status("           GPUJPEG : " LIBGPUJPEG_FOUND THEN Yes     ELSE No)
-status("   libGLEW(OpenGL) : " GLEW_FOUND       THEN Yes     ELSE No)
+status("           GPUJPEG : " WITH_LIBGPUJPEG  THEN Yes     ELSE No)
+status("   libGLEW(OpenGL) : " WITH_GLEW        THEN Yes     ELSE No)
 status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
 status("")
