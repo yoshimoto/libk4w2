@@ -9,15 +9,6 @@
  */
 #if defined(HAVE_GLEW)
 #include <GL/glew.h>
-#define CHECK_GL() do {							\
-	GLenum e;							\
-	while ( (e = glGetError()) != GL_NO_ERROR ) {			\
-	    VERBOSE("glGetError() returns '%s (0x%X)'",			\
-		    glewGetErrorString(e), e );				\
-	}								\
-    } while(0)
-#else
-#define CHECK_GL() (void)0
 #endif
 
 #include "module.h"
@@ -71,7 +62,8 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 
     d->cuda = gpujpeg_decoder_create();
     if (!d->cuda) {
-	VERBOSE("gpujpeg_decoder_create() failed.");
+	VERBOSE("If you want to use libk4w2 with OpenCL/OpenGL,"
+		" OpenCL/OpenGL context must be initialized and attacted before.");
 	goto err;
     }
 
@@ -84,15 +76,10 @@ color_cuda_open(k4w2_decoder_t ctx, unsigned int type)
 		gpujpeg_opengl_texture_register(d->slot[s].texture_id,
 						GPUJPEG_OPENGL_TEXTURE_WRITE);
 	}
-	CHECK_GL();
-    }
-
-    if (type & K4W2_DECODER_ENABLE_OPENGL) {
 	for (s = 0 ; s < ctx->num_slot; ++s) {
 	    gpujpeg_decoder_output_set_texture(&d->slot[s].output,
 					       d->slot[s].texture);
 	}
-	CHECK_GL();
     } else {
 	for (s = 0 ; s < ctx->num_slot; ++s) {
 	    gpujpeg_decoder_output_set_default(&d->slot[s].output);
@@ -115,9 +102,7 @@ color_cuda_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length
     if (d->slot[s].texture_id) {
 	gpujpeg_decoder_decode(d->cuda, h->image, src_length, &d->slot[s].output);
     } else {
-	gpujpeg_decoder_request(d->cuda,
-				h->image,
-				src_length);
+	gpujpeg_decoder_request(d->cuda, h->image, src_length);
     }
     return K4W2_SUCCESS;
 }
