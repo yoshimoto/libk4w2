@@ -44,26 +44,20 @@ set (PROJECT_VER_PATCH 0)
 set (PROJECT_VER 
   "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 
-
-# Libary version
-#
-set (PROJECT_VER_MAJOR 0)
-set (PROJECT_VER_MINOR 0)
-set (PROJECT_VER_PATCH 0)
-set (PROJECT_VER 
-  "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
-
 find_package(libusb-1.0)
-
+find_package(OpenGL)
 find_package(GLEW)
 
+pkg_check_modules(GLFW3 glfw3)
 pkg_check_modules(LIBGPUJPEG libgpujpeg)
 
 k4w2_option(WITH_V4L2       "enable v4l2 driver"       ON IF PROJECT_OS_LINUX)
 k4w2_option(WITH_LIBUSB     "enable libusb-1.0 driver" ON IF LIBUSB_1_FOUND)
 k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder" ON IF LIBGPUJPEG_FOUND)
 k4w2_option(WITH_GLEW       "enable opengl interoperability" ON IF GLEW_FOUND)
+k4w2_option(WITH_GLFW3      "Build glfw3-based example " ON IF GLFW3_FOUND)
 k4w2_option(BUILD_EXAMPLES  "Build example programs" ON)
+
 
 
 # check gpujpeg version
@@ -103,11 +97,13 @@ status("")
 status("       v4l2 driver : " WITH_V4L2        THEN Yes     ELSE No)
 status(" libusb-1.0 driver : " WITH_LIBUSB      THEN Yes     ELSE No)
 status("")
+status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
 status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
-status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
 status("           GPUJPEG : " WITH_LIBGPUJPEG  THEN Yes     ELSE No)
-status("   libGLEW(OpenGL) : " WITH_GLEW        THEN Yes     ELSE No)
+status("            OpenGL : " OpenGL_FOUND     THEN Yes     ELSE No)
+status("              GLEW : " WITH_GLEW        THEN Yes     ELSE No)
+status("             GLFW3 : " WITH_GLFW3       THEN Yes     ELSE No)
 status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
 status("")

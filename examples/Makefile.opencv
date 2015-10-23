@@ -1,0 +1,14 @@
+CPPFLAGS += `pkg-config libk4w2 --cflags`
+LDFLAGS  += `pkg-config libk4w2 --libs-only-L`
+LDLIBS   += `pkg-config libk4w2 --libs-only-l`
+
+CPPFLAGS += `pkg-config opencv --cflags`
+LDFLAGS  += `pkg-config opencv --libs-only-L`
+LDLIBS   += `pkg-config opencv --libs-only-l`
+
+
+TARGETS += opencv
+
+all: $(TARGETS)
+clean:
+	$(RM) -f $(TARGETS) *.o *~

@@ -1,0 +1,13 @@
+CPPFLAGS += `pkg-config libk4w2 --cflags`
+LDFLAGS  += `pkg-config libk4w2 --libs-only-L`
+LDLIBS   += `pkg-config libk4w2 --libs-only-l`
+
+CPPFLAGS += `pkg-config glfw3 glew --cflags`
+LDFLAGS  += `pkg-config glfw3 glew --libs-only-L`
+LDLIBS   += `pkg-config glfw3 glew --libs-only-l`
+
+TARGETS  += opengl
+
+all: $(TARGETS)
+clean:
+	$(RM) -f $(TARGETS) *.o *~

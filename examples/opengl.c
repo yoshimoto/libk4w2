@@ -6,6 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* glfwPostEmptyEvent() is available in GLFW 3.1 or later */
+#if (GLFW_VERSION_MAJOR > 3) || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 1)
+#  define HAVE_GLFWPOSTEMPTYEVENT
+#else
+#  undef  HAVE_GLFWPOSTEMPTYEVENT
+#endif
+
+
 #define VERBOSE(fmt, ...) do { fprintf(stderr, __FILE__ ":%d " fmt "\n", __LINE__, ## __VA_ARGS__); } while(0)
 #define ABORT(fmt, ...) do { VERBOSE(fmt, ## __VA_ARGS__ ); exit(EXIT_FAILURE); } while(0)
 #define CHK( exp ) do { int res = exp; if (!res) { VERBOSE(#exp " failed."); } } while(0)
@@ -73,8 +81,6 @@ int last_len[2] = {0};
 
 static void color_cb(const void *buffer, int length, void *userdata)
 {
-    const struct kinect2_color_footer *f = KINECT2_GET_COLOR_FOOTER(buffer, length);
-
     if (length < 10000) {
 	VERBOSE("bad color frame?");
 	return;
@@ -83,13 +89,13 @@ static void color_cb(const void *buffer, int length, void *userdata)
     last_ptr[COLOR] = buffer;
     last_len[COLOR] = length;
 
+#if defined HAVE_GLFWPOSTEMPTYEVENT
     glfwPostEmptyEvent();
+#endif
 }
 
 static void depth_cb(const void *buffer, int length, void *userdata)
 {
-    const struct kinect2_depth_footer *f = KINECT2_GET_DEPTH_FOOTER(buffer);
-
     if (length != KINECT2_DEPTH_FRAME_SIZE*10) {
 	VERBOSE("bad depth frame?");
 	return;
@@ -98,7 +104,9 @@ static void depth_cb(const void *buffer, int length, void *userdata)
     last_ptr[DEPTH] = buffer;
     last_len[DEPTH] = length;
 
+#if defined HAVE_GLFWPOSTEMPTYEVENT
     glfwPostEmptyEvent();
+#endif
 }
 
 
@@ -269,7 +277,11 @@ main()
 
 	glfwSwapBuffers(window);
 
+#if defined HAVE_GLFWPOSTEMPTYEVENT
 	glfwWaitEvents();
+#else
+	glfwPollEvents();
+#endif
     }
 
 
