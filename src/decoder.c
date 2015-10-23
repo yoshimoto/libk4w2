@@ -54,6 +54,18 @@ k4w2_decoder_wait_default(k4w2_decoder_t ctx, int slot)
     return K4W2_NOT_SUPPORTED;
 }
 
+static int
+k4w2_decoder_set_colorspace_default(k4w2_decoder_t decoder, int colorspace)
+{
+    return K4W2_NOT_SUPPORTED;
+}
+
+static int
+k4w2_decoder_get_colorspace_default(k4w2_decoder_t decoder)
+{
+    return K4W2_NOT_SUPPORTED;
+}
+
 k4w2_decoder_t
 allocate_decoder(const k4w2_decoder_ops *ops, int ctx_size)
 {
@@ -71,6 +83,8 @@ allocate_decoder(const k4w2_decoder_ops *ops, int ctx_size)
     if (!ctx->ops.wait) ctx->ops.wait = k4w2_decoder_wait_default;
     assert(ctx->ops.fetch);
     assert(ctx->ops.close);
+    if (!ctx->ops.set_colorspace) ctx->ops.set_colorspace = k4w2_decoder_set_colorspace_default;
+    if (!ctx->ops.get_colorspace) ctx->ops.get_colorspace = k4w2_decoder_get_colorspace_default;
     return ctx;
 }
 
@@ -137,6 +151,19 @@ k4w2_decoder_set_params(k4w2_decoder_t ctx,
     return ctx->ops.set_params(ctx, color, depth, p0table);
 }
 
+int
+k4w2_decoder_get_colorspace(k4w2_decoder_t ctx)
+{
+    CHECK(ctx);
+    return ctx->ops.get_colorspace(ctx);
+}
+
+int
+k4w2_decoder_set_colorspace(k4w2_decoder_t ctx, int colorspace)
+{
+    CHECK(ctx);
+    return ctx->ops.set_colorspace(ctx, colorspace);
+}
 
 int
 k4w2_decoder_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)

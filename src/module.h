@@ -82,6 +82,8 @@ typedef struct {
 		      struct kinect2_color_camera_param * color,
 		      struct kinect2_depth_camera_param * depth,
 		      struct kinect2_p0table * p0table);
+    int (*set_colorspace)(k4w2_decoder_t decoder, int colorspace);
+    int (*get_colorspace)(k4w2_decoder_t decoder);
     int (*get_gl_texture)(k4w2_decoder_t decoder, int slot, unsigned int options, unsigned int *texturename);
     int (*request)(k4w2_decoder_t ctx, int slot, const void *src, int src_length);
     int (*wait)(k4w2_decoder_t ctx, int slot);

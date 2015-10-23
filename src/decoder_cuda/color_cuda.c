@@ -131,6 +131,12 @@ color_cuda_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int options, un
 }
 
 static int
+color_cuda_get_colorspace(k4w2_decoder_t ctx)
+{
+    return K4W2_COLORSPACE_RGB;
+}
+
+static int
 color_cuda_close(k4w2_decoder_t ctx)
 {
     decoder_cuda * d = (decoder_cuda *)ctx;
@@ -144,6 +150,7 @@ color_cuda_close(k4w2_decoder_t ctx)
 static const k4w2_decoder_ops ops = {
     .open	= color_cuda_open,
     .set_params = NULL,
+    .get_colorspace = color_cuda_get_colorspace,
     .request	= color_cuda_request,
     .get_gl_texture = color_cuda_get_gl_texture,
     .fetch	= color_cuda_fetch,

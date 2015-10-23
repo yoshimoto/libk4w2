@@ -46,6 +46,13 @@ void k4w2_decoder_close(k4w2_decoder_t *ctx);
 int k4w2_decoder_get_gl_texture(k4w2_decoder_t ctx, int slot, unsigned int option,
 				unsigned int *texturename);
 
+
+#define K4W2_COLORSPACE_RGB     1
+#define K4W2_COLORSPACE_BGR     2
+int k4w2_decoder_set_colorspace(k4w2_decoder_t ctx, int colorspace);
+int k4w2_decoder_get_colorspace(k4w2_decoder_t ctx);
+
+
 EXTERN_C_END
 
 #undef EXTERN_C_BEGIN

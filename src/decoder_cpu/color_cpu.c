@@ -20,6 +20,7 @@ typedef struct {
     struct k4w2_decoder_ctx decoder; 
     tjhandle tj;
     unsigned char **buf;
+    int colorspace;
 } decoder_tj;
 
 static int
@@ -34,6 +35,7 @@ color_tj_open(k4w2_decoder_t ctx, unsigned int type)
     if (!d->buf)
 	goto err;
     d->tj = tjInitDecompress();
+    d->colorspace = TJPF_BGR;
 
     return K4W2_SUCCESS;
 err:
@@ -54,7 +56,7 @@ color_tj_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
 			src_length,
 			d->buf[slot],
 			1920, 1920 *3, 1080,
-			TJPF_BGR, TJFLAG_FASTDCT);
+			d->colorspace, TJFLAG_FASTDCT);
     return (0==res)?K4W2_SUCCESS:K4W2_ERROR;
 }
 
@@ -76,6 +78,29 @@ color_tj_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
 }
 
 static int
+color_tj_get_colorspace(k4w2_decoder_t ctx)
+{
+    decoder_tj * d = (decoder_tj *)ctx;
+    switch (d->colorspace) {
+    case TJPF_BGR: return K4W2_COLORSPACE_BGR;
+    case TJPF_RGB: return K4W2_COLORSPACE_RGB;
+    default: return K4W2_COLORSPACE_BGR;
+    }
+}
+
+static int
+color_tj_set_colorspace(k4w2_decoder_t ctx, int colorspace)
+{
+    decoder_tj * d = (decoder_tj *)ctx;
+    switch (colorspace) {
+    case K4W2_COLORSPACE_BGR: d->colorspace = TJPF_BGR; break;
+    case K4W2_COLORSPACE_RGB: d->colorspace = TJPF_RGB; break;
+    default: return K4W2_NOT_SUPPORTED;
+    }
+    return K4W2_SUCCESS;
+}
+
+static int
 color_tj_close(k4w2_decoder_t ctx)
 {
     decoder_tj * d = (decoder_tj *)ctx;
@@ -88,6 +113,8 @@ color_tj_close(k4w2_decoder_t ctx)
 static const k4w2_decoder_ops ops = {
     .open	= color_tj_open,
     .set_params = NULL,
+    .get_colorspace = color_tj_get_colorspace,
+    .set_colorspace = color_tj_set_colorspace,
     .request	= color_tj_request,
 /*    .wait	= color_tj_wait,*/
     .fetch	= color_tj_fetch,
