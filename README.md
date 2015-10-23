@@ -49,7 +49,15 @@ $ cmake ..
 $ make
 ```
 
+## Run test codes
+
 ```
+$ ./bin/simple
+```
+
+```
+$ ./bin/opengl
+$ ./bin/opencv
 $ ./bin/liveview
 ```
 
@@ -61,9 +69,21 @@ $ cmake .. -DCMAKE_INCLUDE_PATH=/path/to/your/include-dir -DCMAKE_LIBRARY_PATH=/
 ## Sample codes
 
 Some sample codes are available in the examples/ directory.
-- examples/simple.c - Simple template that just grabs raw images.
-- examples/opengl.c - Display live video by using OpenGL.
-- examples/liveview.cpp - Display live video by using OpenCV's GUI.
+- examples/simple.c
+ - Simple template that just grabs raw images.
+- examples/opengl.c
+ - Display live video by using OpenGL.
+ - This code can work quite efficiently by using OpenGL-CUDA and OpenGL-OpenCL interoperabilities.
+- examples/opencv.c
+ - Display live video by using OpenCV.
+- examples/liveview.cpp
+ - Demonstration of depth-color image registration
+
+To build these examples, use Makefile.* in examples/.
+```
+$ make
+$ make -f Makefile.opengl
+```
 
 # Aknowledgements
 This library is based on the following discussions and source codes;
