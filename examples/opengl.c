@@ -58,6 +58,9 @@ create_opengl_window(int w, int h, const char *windowname)
 
     glfwMakeContextCurrent(window);
 
+    // Enable waiting for vsync.
+    glfwSwapInterval(1);
+
     glewExperimental = GL_TRUE; // this will stop glew crashing on OSX :-/
     glewInit();
 
