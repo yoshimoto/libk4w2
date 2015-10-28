@@ -13,6 +13,7 @@
 
 #define LIBK4W2_API_VERSION 20150423
 
+#include <stddef.h> /* for size_t */
 #include "libk4w2/kinect2.h"
 
 #ifdef __cplusplus
@@ -74,6 +75,13 @@ int k4w2_camera_params_save(struct kinect2_color_camera_param *color,
 			    struct kinect2_depth_camera_param *depth,
 			    struct kinect2_p0table *p0table,
 			    const char *dirname);
+
+
+int k4w2_create_lut_table(short lut[], const size_t lut_size);
+int k4w2_create_xz_table(const struct kinect2_depth_camera_param *p,
+			 float xtable[], size_t xtable_size,
+			 float ztable[], size_t ztable_size);
+
 
 EXTERN_C_END
 

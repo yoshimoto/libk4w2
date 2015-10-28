@@ -496,21 +496,12 @@ DecoderCL::set_params(const kinect2_color_camera_param * color,
 		      const kinect2_depth_camera_param * depth,
 		      const kinect2_p0table * p0table)
 {
-    static const char *searchpath[] = {
-	K4W2_SRCDIR,
-	K4W2_DATADIR,
-    };
-
     cl_int err = CL_SUCCESS;
     try { 
 	{
-	    size_t actual_size;
-	    int16_t lut[2048];
-	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-					 "11to16.bin",
-					 lut, sizeof(lut),
-					 &actual_size);
-	    if (K4W2_SUCCESS != r || sizeof(lut) != actual_size)
+	    short lut[2048];
+	    int r = k4w2_create_lut_table(lut, sizeof(lut));
+	    if (K4W2_SUCCESS != r)
 		return r;
 	    queue.enqueueWriteBuffer(buf_lut11to16, CL_TRUE,
 				     0, sizeof(lut), lut,
@@ -526,28 +517,16 @@ DecoderCL::set_params(const kinect2_color_camera_param * color,
 	}
 
 	{
-	    cl_float x_table[IMAGE_SIZE];
-	    size_t actual_size;
-	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-					 "xTable.bin",
+	    float x_table[IMAGE_SIZE];
+	    float z_table[IMAGE_SIZE];
+	    int r = k4w2_create_xz_table(depth,
 					 x_table, sizeof(x_table),
-					 &actual_size);
-	    if (K4W2_SUCCESS != r || sizeof(x_table) != actual_size)
+					 z_table, sizeof(z_table));
+	    if (K4W2_SUCCESS != r)
 		return r;
 	    queue.enqueueWriteBuffer(buf_x_table, CL_TRUE,
 				     0, sizeof(x_table), x_table,
 				     NULL, NULL);
-	}
-
-	{
-	    cl_float z_table[IMAGE_SIZE];
-	    size_t actual_size;
-	    int r = k4w2_search_and_load(searchpath, ARRAY_SIZE(searchpath),
-					 "zTable.bin",
-					 z_table, sizeof(z_table),
-					 &actual_size);
-	    if (K4W2_SUCCESS != r || sizeof(z_table) != actual_size)
-		return r;     
 	    queue.enqueueWriteBuffer(buf_z_table, CL_TRUE,
 				     0, sizeof(z_table), z_table,
 				     NULL, NULL);

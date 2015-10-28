@@ -33,28 +33,25 @@ struct k4w2_registration {
 
 
 static inline void
-undistort_depth(k4w2_registration_t reg, int x, int y, float* mx, float* my)
+distort_depth(k4w2_registration_t reg, int mx, int my, float* x, float* y)
 {
-    float dx = ((float)x - reg->depth.cx) / reg->depth.fx;
-    float dy = ((float)y - reg->depth.cy) / reg->depth.fy;
-
-    float ps = (dx * dx) + (dy * dy);
-    float qs = ((ps * reg->depth.k3 + reg->depth.k2) * ps + reg->depth.k1) * ps + 1.0;
-    int i;
-    for (i = 0; i < 9; i++) {
-	float qd = ps / (qs * qs);
-	qs = ((qd * reg->depth.k3 + reg->depth.k2) * qd + reg->depth.k1) * qd + 1.0;
-    }
-
-    *mx = dx / qs;
-    *my = dy / qs;
+    // see http://en.wikipedia.org/wiki/Distortion_(optics) for description
+    double dx = ((double)mx - reg->depth.cx) / reg->depth.fx;
+    double dy = ((double)my - reg->depth.cy) / reg->depth.fy;
+    double dx2 = dx * dx;
+    double dy2 = dy * dy;
+    double r2 = dx2 + dy2;
+    double dxdy2 = 2 * dx * dy;
+    double kr = 1 + ((reg->depth.k3 * r2 + reg->depth.k2) * r2 + reg->depth.k1) * r2;
+    *x = reg->depth.fx * (dx * kr + reg->depth.p2 * (r2 + 2 * dx2) + reg->depth.p1 * dxdy2) + reg->depth.cx;
+    *y = reg->depth.fy * (dy * kr + reg->depth.p1 * (r2 + 2 * dy2) + reg->depth.p2 * dxdy2) + reg->depth.cy;
 }
 
 static inline void
 depth_to_color(k4w2_registration_t reg, float mx, float my, float* rx, float* ry)
 {
-    mx *= reg->depth.fx * depth_q;
-    my *= reg->depth.fy * depth_q;
+    mx = (mx - reg->depth.cx) * depth_q;
+    my = (my - reg->depth.cy) * depth_q;
 
     float wx =
 	(mx * mx * mx * reg->color.mx_x3y0) + (my * my * my * reg->color.mx_x0y3) +
@@ -68,23 +65,20 @@ depth_to_color(k4w2_registration_t reg, float mx, float my, float* rx, float* ry
 	(mx * mx * reg->color.my_x2y0) + (my * my * reg->color.my_x0y2) + (mx * my * reg->color.my_x1y1) +
 	(mx * reg->color.my_x1y0) + (my * reg->color.my_x0y1) + (reg->color.my_x0y0);
 
-    *rx = wx / (reg->color.f * color_q);
-    *ry = wy / (reg->color.f * color_q);
+    *rx = (wx / (reg->color.f * color_q)) - (reg->color.shift_m / reg->color.shift_d);
+    *ry = (wy / color_q) + reg->color.cy;
 }
 
 void
 k4w2_registration_depth_to_color(k4w2_registration_t reg,
-				    int dx, int dy, float dz,
-				    float *cx, float *cy)
+				 int dx, int dy, float dz,
+				 float *cx, float *cy)
 {
     float rx = reg->depth_to_color_map[dx][dy][0];
-    float ry = reg->depth_to_color_map[dx][dy][1];
+    *cy = reg->depth_to_color_map[dx][dy][1];
 
-    rx += (reg->color.shift_m / dz) - (reg->color.shift_m / reg->color.shift_d);
-
-    // !!FIXME!!
+    rx += reg->color.shift_m / dz;
     *cx = rx * reg->color.f + reg->color.cx;
-    *cy = ry * reg->color.f + reg->color.cy;
 }
 
 
@@ -130,29 +124,29 @@ k4w2_registration_t
 k4w2_registration_create(struct kinect2_color_camera_param *color,
 			 struct kinect2_depth_camera_param *depth)
 {
-    int x, y;
+    int mx, my;
     
     k4w2_registration_t reg = (k4w2_registration_t)malloc(sizeof(*reg));
     memcpy(&reg->depth, depth, sizeof(reg->depth));
     memcpy(&reg->color, color, sizeof(reg->color));
 
 
-    for (x = 0; x < 512; x++)
-	for (y = 0; y < 424; y++) {
-	    float mx, my;
-	    undistort_depth(reg, x,y, &mx, &my);
-	    reg->undistort_map[x][y][0] = mx;
-	    reg->undistort_map[x][y][1] = my;
+    for (mx = 0; mx < 512; mx++)
+	for (my = 0; my < 424; my++) {
+	    float x, y;
+	    distort_depth(reg, mx,my, &x, &y);
+	    reg->undistort_map[mx][my][0] = x;
+	    reg->undistort_map[mx][my][1] = y;
 	}
 
-    for (x = 0; x < 512; x++)
-	for (y = 0; y < 424; y++) {
+    for (mx = 0; mx < 512; mx++)
+	for (my = 0; my < 424; my++) {
 	    float rx, ry;
 	    depth_to_color(reg,
-			   reg->undistort_map[x][y][0],
-			   reg->undistort_map[x][y][1], &rx, &ry);
-	    reg->depth_to_color_map[x][y][0] = rx;
-	    reg->depth_to_color_map[x][y][1] = ry;
+			   reg->undistort_map[mx][my][0],
+			   reg->undistort_map[mx][my][1], &rx, &ry);
+	    reg->depth_to_color_map[mx][my][0] = rx;
+	    reg->depth_to_color_map[mx][my][1] = ry;
 	}
 
     return reg;

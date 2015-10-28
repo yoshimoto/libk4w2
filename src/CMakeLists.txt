@@ -49,7 +49,7 @@ else(TURBOJPEG_FOUND)
 endif(TURBOJPEG_FOUND)
 list(APPEND SRC decoder_cpu/color_cpu.c decoder_cpu/depth_cpu.c)
 
-list(APPEND SRC registration.c)
+list(APPEND SRC registration.c ir_table.c)
 
 if (OPENMP_FOUND)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -105,9 +105,6 @@ install (FILES
   DESTINATION ${PROJECT_INCLUDE_INSTALL_DIR}/${PROJECT_NAME})
 
 install (FILES
-  "xTable.bin"
-  "zTable.bin"
-  "11to16.bin"
   DESTINATION ${PROJECT_DATA_INSTALL_DIR})
 
 if (OpenCL_FOUND)

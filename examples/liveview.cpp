@@ -158,7 +158,7 @@ main()
 		for(dx = 0; dx < 512; ++dx) {
 		    float z = depth32F1.at<float>(dy, dx);
 
-		    if (z < 500 || 1000 < z) {
+		    if (z < 500 || 5000 < z) {
 			mapped8U3.at<cv::Vec3b>(dy, dx)[0]=255;
 			mapped8U3.at<cv::Vec3b>(dy, dx)[1]=0;
 			mapped8U3.at<cv::Vec3b>(dy, dx)[2]=0;
