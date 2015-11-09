@@ -60,11 +60,15 @@ static void depth_cb(const void *buffer, int length, void *userdata)
 
 
 int
-main()
+main(int argc, const char *argv[])
 {
-    k4w2_t ctx = k4w2_open(0, 0);
+    int deviceid = 0;
+    if (argc >= 2) {
+	deviceid  = atoi( argv[1] );
+    }
+    k4w2_t ctx = k4w2_open(deviceid, 0);
     if (!ctx) {
-	ABORT("failed to open kinect device.");
+	ABORT("failed to open kinect device #%d", deviceid);
     }
 
 

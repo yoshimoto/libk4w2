@@ -261,7 +261,7 @@ k4w2_v4l2_open(k4w2_t ctx, unsigned int deviceid, unsigned int flags)
 
 	char devfile[FILENAME_MAX];
 	snprintf(devfile, sizeof(devfile), "/dev/video%d",
-		 deviceid + ch);
+		 deviceid*2 + ch);
 
 	res = open_camera(&v4l2->cam[ch], devfile);
 	if (K4W2_SUCCESS != res) {

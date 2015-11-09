@@ -175,14 +175,18 @@ static GLuint create_glsl_program()
 
 
 int
-main()
+main(int argc, const char *argv[])
 {
     k4w2_set_debug_level(1000);
     GLFWwindow *window = create_opengl_window(640*2,480, "opengl");
 
-    k4w2_t ctx = k4w2_open(0, 0);
+    int deviceid = 0;
+    if (argc >= 2) {
+	deviceid = atoi( argv[1] );
+    }
+    k4w2_t ctx = k4w2_open(deviceid, 0);
     if (!ctx) {
-	ABORT("failed to open kinect device.");
+	ABORT("failed to open kinect device #%d.",deviceid);
     }
 
     k4w2_decoder_t decoder[2] = {0};
