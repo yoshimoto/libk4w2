@@ -33,13 +33,16 @@ typedef struct {
 	float min_dealias_confidence;
 	float max_dealias_confidence;
 
-//	float min_depth;
-//	float max_depth;
+/*	float min_depth;
+	float max_depth;*/
     } params;
 
     float trig_table0[512*424][6];
     float trig_table1[512*424][6];
     float trig_table2[512*424][6];
+
+    int16_t lut11to16[2048];
+
     float x_table[512*424];
     float z_table[512*424];
 
@@ -48,7 +51,6 @@ typedef struct {
 
 } decoder_depth;
 
-static int16_t lut11to16[2048];
 
 #define MIN(a,b)  (a)>(b)?(b):(a)
 #define MAX(a,b)  (a)>(b)?(a):(b)
@@ -75,8 +77,8 @@ set_params(struct parameters *p)
     p->min_dealias_confidence = 0.3490659f;
     p->max_dealias_confidence = 0.6108653f;
 
-//    p->min_depth = 500.0f;
-//    p->max_depth = 4500.0f;
+/*    p->min_depth = 500.0f;
+      p->max_depth = 4500.0f;*/
 }
 
 static inline int
@@ -87,7 +89,8 @@ bfi(int width, int offset, int src2, int src3)
 }
 
 static inline int32_t
-decodePixelMeasurement(const unsigned char* data, int sub, int x, int y) 
+decodePixelMeasurement(const unsigned char* data, int sub, int x, int y,
+		       const int16_t lut11to16[]) 
 {
     const uint16_t *ptr = (const uint16_t*)(data + KINECT2_DEPTH_FRAME_SIZE * sub);
 
@@ -415,16 +418,13 @@ depth_cpu_set_params(k4w2_decoder_t ctx,
 
     set_params(&d->params);
 
-    short lut[2048];
-    r = k4w2_create_lut_table(lut, sizeof(lut));
+    r = k4w2_create_lut_table(d->lut11to16, sizeof(d->lut11to16));
     if (K4W2_SUCCESS != r)
 	return r;
 
-    float x_table[512*424];
-    float z_table[512*424];
     r = k4w2_create_xz_table(depth,
-			     x_table, sizeof(x_table),
-			     z_table, sizeof(z_table));
+			     d->x_table, sizeof(d->x_table),
+			     d->z_table, sizeof(d->z_table));
     if (K4W2_SUCCESS != r)
 	return K4W2_SUCCESS;
     
@@ -454,15 +454,15 @@ depth_cpu_request(k4w2_decoder_t ctx, int slot, const void *src, int src_length)
 	    int32_t m0_raw[3], m1_raw[3], m2_raw[3];
 
 
-	    m0_raw[0] = decodePixelMeasurement(src, 0, x, y);
-	    m0_raw[1] = decodePixelMeasurement(src, 1, x, y);
-	    m0_raw[2] = decodePixelMeasurement(src, 2, x, y);
-	    m1_raw[0] = decodePixelMeasurement(src, 3, x, y);
-	    m1_raw[1] = decodePixelMeasurement(src, 4, x, y);
-	    m1_raw[2] = decodePixelMeasurement(src, 5, x, y);
-	    m2_raw[0] = decodePixelMeasurement(src, 6, x, y);
-	    m2_raw[1] = decodePixelMeasurement(src, 7, x, y);
-	    m2_raw[2] = decodePixelMeasurement(src, 8, x, y);
+	    m0_raw[0] = decodePixelMeasurement(src, 0, x, y, d->lut11to16);
+	    m0_raw[1] = decodePixelMeasurement(src, 1, x, y, d->lut11to16);
+	    m0_raw[2] = decodePixelMeasurement(src, 2, x, y, d->lut11to16);
+	    m1_raw[0] = decodePixelMeasurement(src, 3, x, y, d->lut11to16);
+	    m1_raw[1] = decodePixelMeasurement(src, 4, x, y, d->lut11to16);
+	    m1_raw[2] = decodePixelMeasurement(src, 5, x, y, d->lut11to16);
+	    m2_raw[0] = decodePixelMeasurement(src, 6, x, y, d->lut11to16);
+	    m2_raw[1] = decodePixelMeasurement(src, 7, x, y, d->lut11to16);
+	    m2_raw[2] = decodePixelMeasurement(src, 8, x, y, d->lut11to16);
 
 	    processMeasurementTriple((const float (*)[6])d->trig_table0, d->z_table,
 				     d->params.ab_multiplier_per_frq[0], d->params.ab_multiplier, x, y, m0_raw, p+0);
