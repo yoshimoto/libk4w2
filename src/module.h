@@ -101,7 +101,6 @@ struct k4w2_decoder_ctx {
 
 /* ==== module management === */
 
-//#define MODINIT(name)   __attribute__((constructor)) void name()
 #define REGISTER_MODULE(name) void name()
 #define INITIALIZE_MODULE(name)  do { void name(); name(); } while(0)
 

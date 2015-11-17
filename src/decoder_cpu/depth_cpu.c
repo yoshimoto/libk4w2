@@ -13,6 +13,12 @@
 
 #include <assert.h>
 
+/* Note that M_PI is not defined in C99 */
+#if ! defined M_PI
+#  define M_PI 3.1415926535897932384626433832795L
+#endif
+
+
 #pragma GCC optimize ("O3")
 
 typedef struct {
@@ -164,8 +170,8 @@ transformMeasurements(const float m[3], float ab_multiplier,
 
     float tmp1 = sqrtf(m[0] * m[0] + m[1] * m[1]) * ab_multiplier;
 
-    out[0] = tmp0; // phase
-    out[1] = tmp1; // ir amplitude - (possibly bilateral filtered)
+    out[0] = tmp0; /* phase */
+    out[1] = tmp1; /* ir amplitude - (possibly bilateral filtered) */
     out[2] = m[2];
 }
 
@@ -191,31 +197,31 @@ processMeasurementTriple(const float trig_table[512*424][6],
     const int cond0 = 0 < zmultiplier;
     const int cond1 = (m[0] == 32767 || m[1] == 32767 || m[2] == 32767) && cond0;
 
-    // formula given in Patent US 8,587,771 B2
+    /* formula given in Patent US 8,587,771 B2 */
     float tmp3 = cos_tmp0 * m[0] + cos_tmp1 * m[1] + cos_tmp2 * m[2];
     float tmp4 = sin_negtmp0 * m[0] + sin_negtmp1 * m[1] + sin_negtmp2 * m[2];
 
-    // only if modeMask & 32 != 0;
-    if(1)//(modeMask & 32) != 0)
+    /* only if modeMask & 32 != 0; */
+    if(1) /* (modeMask & 32) != 0) */
     {
 	tmp3 *= abMultiplierPerFrq;
 	tmp4 *= abMultiplierPerFrq;
     }
     float tmp5 = sqrtf(tmp3 * tmp3 + tmp4 * tmp4) * ab_multiplier;
 
-    // invalid pixel because zmultiplier < 0 ??
+    /* invalid pixel because zmultiplier < 0 ?? */
     tmp3 = cond0 ? tmp3 : 0;
     tmp4 = cond0 ? tmp4 : 0;
     tmp5 = cond0 ? tmp5 : 0;
 
-    // invalid pixel because saturated?
+    /* invalid pixel because saturated? */
     tmp3 = !cond1 ? tmp3 : 0;
     tmp4 = !cond1 ? tmp4 : 0;
-    tmp5 = !cond1 ? tmp5 : 65535.0; // some kind of norm calculated from tmp3 and tmp4
+    tmp5 = !cond1 ? tmp5 : 65535.0; /* some kind of norm calculated from tmp3 and tmp4 */
 
-    m_out[0] = tmp3; // ir image a
-    m_out[1] = tmp4; // ir image b
-    m_out[2] = tmp5; // ir amplitude
+    m_out[0] = tmp3; /* ir image a */
+    m_out[1] = tmp4; /* ir image b */
+    m_out[2] = tmp5; /* ir amplitude */
 }
 
 
@@ -232,14 +238,16 @@ processPixelStage2(int x, int y,
 {
     const int offset = y * 512 + x;
 
-    //// 10th measurement
-    //float m9 = 1; // decodePixelMeasurement(data, 9, x, y);
-    //
-    //// WTF?
-    //bool cond0 = zmultiplier == 0 || (m9 >= 0 && m9 < 32767);
-    //m9 = std::max(-m9, m9);
-    //// if m9 is positive or pixel is invalid (zmultiplier) we set it to 0 otherwise to its absolute value O.o
-    //m9 = cond0 ? 0 : m9;
+    /* 10th measurement
+     * float m9 = 1; // decodePixelMeasurement(data, 9, x, y);
+     */
+    /* WTF?
+     * bool cond0 = zmultiplier == 0 || (m9 >= 0 && m9 < 32767);
+     * m9 = std::max(-m9, m9);
+     */
+    /*  if m9 is positive or pixel is invalid (zmultiplier) we set it to 0 otherwise to its absolute value O.o
+     * m9 = cond0 ? 0 : m9;
+     */
 
     float m0[3], m1[3], m2[3];
 
@@ -352,13 +360,14 @@ processPixelStage2(int x, int y,
 	*ir_sum_out = ir_sum;
     }
 
-    // ir
-    //*ir_out = std::min((m1[2]) * ab_output_multiplier, 65535.0f);
-    // ir avg
-    *ir_out = MIN((m0[2] + m1[2] + m2[2]) * 0.3333333f * params->ab_output_multiplier, 65535.0f);
-    //ir_out[0] = std::min(m0[2] * ab_output_multiplier, 65535.0f);
-    //ir_out[1] = std::min(m1[2] * ab_output_multiplier, 65535.0f);
-    //ir_out[2] = std::min(m2[2] * ab_output_multiplier, 65535.0f);
+    /* ir
+     * *ir_out = std::min((m1[2]) * ab_output_multiplier, 65535.0f);
+     * ir avg
+     *ir_out = MIN((m0[2] + m1[2] + m2[2]) * 0.3333333f * params->ab_output_multiplier, 65535.0f);
+     ir_out[0] = std::min(m0[2] * ab_output_multiplier, 65535.0f);
+     ir_out[1] = std::min(m1[2] * ab_output_multiplier, 65535.0f);
+     ir_out[2] = std::min(m2[2] * ab_output_multiplier, 65535.0f);
+    */
 }
 
 static int

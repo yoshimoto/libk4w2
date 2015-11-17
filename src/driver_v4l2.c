@@ -210,8 +210,6 @@ static int mmap_camera(Camera *cam, int num_buf)
 	    goto err;
 	}
 
-
-	//VERBOSE("buf.length: %d", buf.length);
 	cam->buf[i].length = buf.length;
 	cam->buf[i].start = mmap(NULL /* start anywhere */,
 				  buf.length,

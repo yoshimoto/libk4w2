@@ -10,7 +10,7 @@
 
 #include "libk4w2/libk4w2.h"
 #include <stdio.h>
-#include <time.h> /* nanosleep() */
+#include <unistd.h> /* sleep(3) */
 #include <stdlib.h> /* exit() */
 
 #define ABORT(fmt, ...) do { fprintf(stderr, fmt "\n", ## __VA_ARGS__); exit(EXIT_FAILURE); } while(0)
@@ -48,8 +48,7 @@ main()
     k4w2_start(ctx);
 
     /* Waits for 10 seconds */
-    struct timespec req = {10,0};
-    nanosleep(&req, NULL);
+    sleep( 10 );
 
     
     k4w2_stop(ctx);

@@ -18,6 +18,7 @@
 
 #include <string.h> /* for strerrno */
 #include <errno.h> 
+#include <stdio.h>  /* for snprintf() */
 
 /** 
  * Allocates an array of #num elements of #size bytes each

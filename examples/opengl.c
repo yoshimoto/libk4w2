@@ -58,14 +58,15 @@ create_opengl_window(int w, int h, const char *windowname)
 
     glfwMakeContextCurrent(window);
 
-    // Enable waiting for vsync.
+    /* Enable waiting for vsync. */
     glfwSwapInterval(1);
 
-    glewExperimental = GL_TRUE; // this will stop glew crashing on OSX :-/
+    glewExperimental = GL_TRUE; /* this will stop glew crashing on OSX :- */
     glewInit();
 
-    // workaround for glewInit() issue.
-    for (int retry = 0; retry<10; ++retry) {
+    /* workaround for glewInit() issue. */
+    int retry;
+    for (retry = 0; retry<10; ++retry) {
 	if (glGetError() == GL_NO_ERROR)
 	    break;
     }
@@ -145,7 +146,8 @@ static GLuint create_glsl_program()
     GLuint program = glCreateProgram();
     static const GLenum type[] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
 
-    for (size_t i=0; i<2; ++i) {
+    size_t i;
+    for (i=0; i<2; ++i) {
 	GLuint shader = glCreateShader(type[i]);
 	glShaderSource(shader, 1, &glsl_source[i], NULL);
 	glCompileShader(shader);
@@ -225,7 +227,8 @@ main(int argc, const char *argv[])
 
     CHECK_GL();
     GLuint texture[2];
-    for (size_t i = 0; i < 2; ++i) {
+    size_t i;
+    for (i = 0; i < 2; ++i) {
 	int slot = 0;
 	CHK( K4W2_SUCCESS == k4w2_decoder_get_gl_texture(decoder[i], slot, 0, &texture[i]));
     }
@@ -261,9 +264,8 @@ main(int argc, const char *argv[])
     glUseProgram(0);
 
     while (!glfwWindowShouldClose(window)) {
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	for (size_t i=0; i<2; ++i) {
+	size_t i;
+	for (i=0; i<2; ++i) {
 	    if (last_ptr[i]) {
 		int slot = 0;
 		int res;
@@ -293,7 +295,7 @@ main(int argc, const char *argv[])
 
 
     k4w2_stop(ctx);
-    for (size_t i = 0; i < 2; ++i) {
+    for (i = 0; i < 2; ++i) {
 	k4w2_decoder_close(&decoder[i]);
     }
     k4w2_close(&ctx);
