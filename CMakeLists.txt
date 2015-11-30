@@ -26,11 +26,6 @@ if(APPLE)
     endif()
 endif()
 
-if(WIN32)
-  set_source_files_properties(${SRC} PROPERTIES LANGUAGE CXX)
-endif(WIN32)
-
-
 #
 # Compiler options
 #
@@ -47,6 +42,7 @@ set (PROJECT_VER
 find_package(libusb-1.0)
 find_package(OpenGL)
 find_package(GLEW)
+find_package(TurboJPEG)
 
 pkg_check_modules(GLFW3 glfw3)
 pkg_check_modules(LIBGPUJPEG libgpujpeg)
@@ -54,6 +50,7 @@ pkg_check_modules(LIBGPUJPEG libgpujpeg)
 k4w2_option(WITH_V4L2       "enable v4l2 driver"       ON IF PROJECT_OS_LINUX)
 k4w2_option(WITH_LIBUSB     "enable libusb-1.0 driver" ON IF LIBUSB_1_FOUND)
 k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder" ON IF LIBGPUJPEG_FOUND)
+k4w2_option(WITH_TURBOJPEG  "enable turbojpeg decoder" ON IF TURBOJPEG_FOUND)
 k4w2_option(WITH_GLEW       "enable opengl interoperability" ON IF GLEW_FOUND)
 k4w2_option(WITH_GLFW3      "Build glfw3-based example " ON IF GLFW3_FOUND)
 k4w2_option(BUILD_EXAMPLES  "Build example programs" ON)
@@ -101,6 +98,7 @@ status("            OpenCV : " OPENCV_FOUND     THEN Yes     ELSE No)
 status("            OpenMP : " OPENMP_FOUND     THEN Yes     ELSE No)
 status("            OpenCL : " OpenCL_FOUND     THEN Yes     ELSE No)
 status("           GPUJPEG : " WITH_LIBGPUJPEG  THEN Yes     ELSE No)
+status("         TurboJPEG : " WITH_TURBOJPEG   THEN Yes     ELSE No)
 status("            OpenGL : " OpenGL_FOUND     THEN Yes     ELSE No)
 status("              GLEW : " WITH_GLEW        THEN Yes     ELSE No)
 status("             GLFW3 : " WITH_GLFW3       THEN Yes     ELSE No)

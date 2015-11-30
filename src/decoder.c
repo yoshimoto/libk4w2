@@ -97,6 +97,10 @@ k4w2_decoder_open(const unsigned int type, const int num_slot)
     MUTEX_LOCK(&decoder_mutex);
 
     if (firsttime) {
+	if (getenv("LIBK4W2_VERBOSE")) {
+	    k4w2_debug_level = atoi(getenv("LIBK4W2_VERBOSE"));
+	}
+
 #if defined HAVE_OPENCL
 	INITIALIZE_MODULE(k4w2_decoder_depth_cl_init);
 #endif
@@ -104,11 +108,9 @@ k4w2_decoder_open(const unsigned int type, const int num_slot)
 #if defined HAVE_LIBGPUJPEG
 	INITIALIZE_MODULE(k4w2_decoder_color_cuda_init);
 #endif
+#if defined HAVE_TURBOJPEG
 	INITIALIZE_MODULE(k4w2_decoder_color_cpu_init);
-
-	if (getenv("LIBK4W2_VERBOSE")) {
-	    k4w2_debug_level = atoi(getenv("LIBK4W2_VERBOSE"));
-	}
+#endif
 
 	firsttime = 0;
     }
