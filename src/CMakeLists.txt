@@ -40,14 +40,13 @@ if(WITH_GLEW)
   add_definitions(-DHAVE_GLEW)
 endif()
 
-find_package(TurboJPEG)
-if(TURBOJPEG_FOUND)
+if(WITH_TURBOJPEG)
   include_directories(${TURBOJPEG_INCLUDE_DIRS})
   add_definitions(-DHAVE_TURBOJPEG)
-else(TURBOJPEG_FOUND)
-  message(FATAL_ERROR "TurboJPEG is missing, aborting!")
-endif(TURBOJPEG_FOUND)
-list(APPEND SRC decoder_cpu/color_cpu.c decoder_cpu/depth_cpu.c)
+  list(APPEND SRC decoder_cpu/color_cpu.c)
+endif(WITH_TURBOJPEG)
+
+list(APPEND SRC decoder_cpu/depth_cpu.c)
 
 list(APPEND SRC registration.c ir_table.c)
 
@@ -59,7 +58,7 @@ endif()
 if (OpenCL_FOUND)
   add_definitions(-DHAVE_OPENCL)
   include_directories(${OPENCL_INCLUDE_DIRS})
-  list(APPEND SRC decoder_cl/depth_cl.cpp)
+  list(APPEND SRC decoder_cl/depth_cl.c)
 endif()
 
 if(LIBGPUJPEG_FOUND)
@@ -72,6 +71,7 @@ endif()
 list(APPEND SRC decoder.c)
 
 add_library (k4w2 SHARED ${SRC})
+set_property(TARGET k4w2 PROPERTY C_STANDARD 90)
 
 set_target_properties (k4w2 PROPERTIES
   VERSION ${PROJECT_VER}
