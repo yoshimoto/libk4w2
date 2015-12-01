@@ -43,6 +43,7 @@ find_package(libusb-1.0)
 find_package(OpenGL)
 find_package(GLEW)
 find_package(TurboJPEG)
+find_package(OpenCV)
 
 pkg_check_modules(GLFW3 glfw3)
 pkg_check_modules(LIBGPUJPEG libgpujpeg)
@@ -53,7 +54,7 @@ k4w2_option(WITH_LIBGPUJPEG "enable libgpujpeg decoder"		ON IF LIBGPUJPEG_FOUND)
 k4w2_option(WITH_TURBOJPEG  "enable turbojpeg decoder"		ON IF TURBOJPEG_FOUND)
 k4w2_option(WITH_GLEW       "enable opengl interoperability"	ON IF GLEW_FOUND)
 k4w2_option(WITH_GLFW3      "Build glfw3-based example "	ON IF GLFW3_FOUND)
-k4w2_option(WITH_OPENCV     "enable OpenCV"			ON IF OPENCV_FOUND)
+k4w2_option(WITH_OPENCV     "enable OpenCV"			ON IF OpenCV_FOUND)
 k4w2_option(BUILD_EXAMPLES  "Build example programs"            ON)
 
 
