@@ -1,4 +1,3 @@
-#include <CL/cl.h>
 
 const char * opencl_strenum(cl_uint n)
 {

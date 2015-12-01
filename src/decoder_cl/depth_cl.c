@@ -48,6 +48,7 @@
 #if defined(__APPLE__ ) || defined(__MACOSX)
 #  include <OpenCL/cl.h>
 #  include <OpenCL/cl_gl.h>
+#  include <OpenCL/cl_gl_ext.h>
 #else
 #  include <CL/cl.h>
 #  include <CL/cl_gl.h>
@@ -291,10 +292,10 @@ open_slot(Slot *s, const DecoderCL *decoder)
     desc.num_samples = 0;
     desc.buffer = NULL;
 
+    size_t i;
 #if defined(HAVE_GLEW)
     if (decoder->m_type & K4W2_DECODER_ENABLE_OPENGL) {
 	glGenTextures(2, &s->texture.name[0]);
-	size_t i;
 	for (i = 0; i < 2; ++i) {
 	    glBindTexture(GL_TEXTURE_2D, s->texture.name[i]);
 	    glTexStorage2D(GL_TEXTURE_2D,
@@ -314,7 +315,6 @@ open_slot(Slot *s, const DecoderCL *decoder)
 	    }
 	}
     } else {
-	size_t i;
 	for (i = 0; i < 2; ++i) {
 	    s->texture.name[i] = 0;
 	    s->image[i] = clCreateImage(decoder->context, CL_MEM_WRITE_ONLY,
@@ -324,7 +324,7 @@ open_slot(Slot *s, const DecoderCL *decoder)
 	}
     }
 #else
-    for (size_t i = 0; i < 2; ++i) {
+    for (i = 0; i < 2; ++i) {
 	s->image[i] = clCreateImage(decoder->context, CL_MEM_WRITE_ONLY,
 				    &format,
 				    &desc,
@@ -366,12 +366,17 @@ close_slot(Slot *s, unsigned int type)
 	CHK_CL( clReleaseMemObject(s->image[i]) );
     }
     if (type & K4W2_DECODER_ENABLE_OPENGL) {
+#if defined(HAVE_GLEW)
 	glDeleteTextures(2, &s->texture.name[0]);
+#endif
     }
 
     CHK_CL( clReleaseKernel(s->kernel_1) );
     CHK_CL( clReleaseKernel(s->kernel_2) );
 }
+
+
+#if defined(HAVE_GLEW)
 
 #if defined(__APPLE__ ) || defined(__MACOSX)
 static void *get_current_cgl_share_group()
@@ -383,7 +388,6 @@ static void *get_current_cgl_share_group()
 }
 #endif // #if defined(__APPLE__ ) || defined(__MACOSX)
 
-#if defined(HAVE_GLEW)
 static int check_opengl_context(cl_device_id device_id)
 {
 
@@ -571,6 +575,7 @@ open_decoder(DecoderCL *decoder,
 					  buflen, buf, &buflen) );
 	    buf[ buflen ] = '\0';
 	    ABORT("build log: %s", buf);
+	    free(buf);
 	} else {
 	    ABORT("clBuildProgram() returns %s", opencl_strenum(err) );
 	}
@@ -684,8 +689,6 @@ request(DecoderCL *decoder, int slot, const void *ptr, int length)
 
     Slot* s = &decoder->m_slot[slot];
 
-    cl_mem objs[2] = {s->image[0], s->image[1]};
-
     CHK_CL( clEnqueueWriteBuffer(decoder->queue,
 				 s->buf_packet, CL_FALSE, 0, length, ptr,
 				 0, NULL,
@@ -694,6 +697,7 @@ request(DecoderCL *decoder, int slot, const void *ptr, int length)
     // !!FIXME!!
     int num_event_write = 1;
 #if defined(HAVE_GLEW)
+    cl_mem objs[2] = {s->image[0], s->image[1]};
     if (decoder->m_type & K4W2_DECODER_ENABLE_OPENGL) {
 	CHK_CL( clEnqueueAcquireGLObjects(decoder->queue,
 					  ARRAY_SIZE(objs), &objs[0],
@@ -849,9 +853,7 @@ REGISTER_MODULE(k4w2_decoder_depth_cl_init)
     ops.open	= depth_cl_open;
     ops.set_params = depth_cl_set_params;
     ops.request	= depth_cl_request;
-#if defined(HAVE_GLEW)
     ops.get_gl_texture = depth_cl_get_gl_texture;
-#endif
     ops.fetch	= depth_cl_fetch;
     ops.close	= depth_cl_close;
 

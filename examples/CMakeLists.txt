@@ -1,14 +1,13 @@
 
-pkg_check_modules(OPENCV opencv)
-if(OPENCV_FOUND)
+if(WITH_OPENCV)
   include_directories(${OPENCV_INCLUDE_DIRS})
   add_executable(liveview liveview.cpp)
   target_link_libraries (liveview k4w2 ${OPENCV_LDFLAGS} ${OPENCV_LIBRARIES})
   add_executable(opencv opencv.cpp)
   target_link_libraries (opencv k4w2 ${OPENCV_LDFLAGS} ${OPENCV_LIBRARIES})
-endif(OPENCV_FOUND)
+endif(WITH_OPENCV)
 
-if (LIBGPUJPEG_FOUND)
+if (WITH_LIBGPUJPEG)
   link_directories(${LIBGPUJPEG_LIBRARY_DIRS})
 endif()
 
