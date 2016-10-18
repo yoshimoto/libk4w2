@@ -83,7 +83,7 @@ k4w2_registration_depth_to_color(k4w2_registration_t reg,
 
 
 k4w2_registration_t
-k4w2_registration_create_from_file(const char *dirname)
+k4w2_registration_create_from_dir(const char *dirname)
 {
     struct kinect2_color_camera_param color_param;
     struct kinect2_depth_camera_param depth_param;

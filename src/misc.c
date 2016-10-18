@@ -182,10 +182,13 @@ k4w2_camera_params_load(const char *dirname,
     for (i = 0; i<sizeof(e)/sizeof(*e); ++i) {
 	size_t actual_size;
 	int r;
+	/* load will be skipped when ptr is NULL */
+	if (!e[i].ptr)
+	    continue;
 	r = k4w2_load(dirname, e[i].filename, e[i].ptr, e[i].size,
 		      &actual_size);
 	if (K4W2_SUCCESS != r || actual_size != e[i].size) {
-	    VERBOSE("failed to load(%s/%s)", dirname, e[i].filename);
+	    VERBOSE("failed to load(%s/%s) %zd", dirname, e[i].filename, e[i].size);
 	}
     }
     return K4W2_SUCCESS;
