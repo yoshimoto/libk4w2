@@ -105,6 +105,9 @@ k4w2_decoder_open(const unsigned int type, const int num_slot)
 	INITIALIZE_MODULE(k4w2_decoder_depth_cl_init);
 #endif
 	INITIALIZE_MODULE(k4w2_decoder_depth_cpu_init);
+#if defined HAVE_NVJPEG
+	INITIALIZE_MODULE(k4w2_decoder_color_nvjpeg_init);
+#endif
 #if defined HAVE_LIBGPUJPEG
 	INITIALIZE_MODULE(k4w2_decoder_color_cuda_init);
 #endif
