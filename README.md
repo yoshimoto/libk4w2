@@ -10,7 +10,7 @@ Linux
  - libusb-1.0 (optional)
  - OpenCL (optional)
    - required for optimized depth decording
- - nvJPEG (optional)
+ - nvJPEG (optional; recommended)
  - GPUJPEG (optional)
    - A modified version of GPUJPEG is required. 
    It is available at https://sourceforge.net/u/yosimoto/gpujpeg/ci/master/tree/
@@ -72,14 +72,14 @@ $ cmake .. -DCMAKE_INCLUDE_PATH=/path/to/your/include-dir -DCMAKE_LIBRARY_PATH=/
 
 Some sample codes are available in the examples/ directory.
 - examples/simple.c
- - Simple template that just grabs raw images.
+  - Simple template that just grabs raw images.
 - examples/opengl.c
- - Display live video by using OpenGL.
- - This code can work quite efficiently by using OpenGL-CUDA and OpenGL-OpenCL interoperabilities.
+  - Display live video by using OpenGL.
+  - This code can work quite efficiently by using OpenGL-CUDA and OpenGL-OpenCL interoperabilities.
 - examples/opencv.c
- - Display live video by using OpenCV.
+  - Display live video by using OpenCV.
 - examples/liveview.cpp
- - Demonstration of depth-color image registration
+  - Demonstration of depth-color image registration
 
 To build these examples, use Makefile.* in examples/.
 ```
