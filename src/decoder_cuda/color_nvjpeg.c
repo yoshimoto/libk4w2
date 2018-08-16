@@ -22,10 +22,12 @@
 #include <assert.h>
 
 typedef struct {
-    unsigned int texture_id;
+    GLuint texture_id;
     nvjpegJpegState_t jpeg;
+
     nvjpegImage_t image;
     cudaGraphicsResource_t gres;
+    GLuint bufobj;
 
     int phase;
 } decoder_slot;
@@ -38,9 +40,9 @@ typedef struct {
     decoder_slot *slot;
 
     nvjpegOutputFormat_t outputfmt;
+    // Image format of slot->bufobj.
+    GLenum buffmt;
     int nChannels;
-
-    void *copy_buffer;
 } decoder_nvjpeg;
 
 static const char *
@@ -97,10 +99,12 @@ color_nvjpeg_open(k4w2_decoder_t ctx, unsigned int type)
 	internalfmt = GL_R8;
 	d->outputfmt = NVJPEG_OUTPUT_Y;
 	d->nChannels = 1;
+	d->buffmt = GL_RED;
     } else {
 	internalfmt = GL_RGB8;
 	d->outputfmt = NVJPEG_OUTPUT_RGBI;
 	d->nChannels = 3;
+	d->buffmt = GL_RGB;
     }
     assert(1 <= ctx->num_slot);
     d->slot = (decoder_slot*) malloc (sizeof(decoder_slot) * ctx->num_slot);
@@ -112,34 +116,41 @@ color_nvjpeg_open(k4w2_decoder_t ctx, unsigned int type)
 	    VERBOSE("nvjpegJpegStateCreate() failed; %s", nvjpeg_strerro(res));
 	    goto err;
 	}
-
-	cudaMalloc((void**)&slot->image.channel[0], 1920 * 1080 * d->nChannels);
-	CUDA_CHECK_ERR();
-	slot->image.pitch[0] = 1920 * d->nChannels;
     }
 
     if (type & K4W2_DECODER_ENABLE_OPENGL) {
+	// Allocate slot->image from OpenGL's buffer object
 	for (s = 0; s < ctx->num_slot; ++s) {
 	    decoder_slot *slot = &d->slot[s];
 	    glCreateTextures(GL_TEXTURE_2D, 1, &slot->texture_id);
 	    glTextureStorage2D(slot->texture_id,
 			       1, internalfmt, 1920, 1080);
 
-	    // Prepares for opengl interoperation
-	    if (1!=d->nChannels) {
-		// CUDA cannot copy the image directory.
-		d->copy_buffer = malloc(1920*1080*d->nChannels);
-	    } else {
-		cudaGraphicsGLRegisterImage(&slot->gres, slot->texture_id,
-					    GL_TEXTURE_2D,
-					    cudaGraphicsMapFlagsNone);
-		CUDA_CHECK_ERR();
-		d->copy_buffer = NULL;
-	    }
+	    glCreateBuffers(1, &slot->bufobj);
+	    glNamedBufferData(slot->bufobj, 1920*1080*d->nChannels,
+			      NULL, GL_STREAM_COPY);
 
+	    // Prepares for opengl interoperation
+	    cudaGraphicsGLRegisterBuffer(&slot->gres, slot->bufobj,
+					 cudaGraphicsMapFlagsNone);
+
+	    slot->image.channel[0] = NULL;
+	    slot->image.pitch[0] = 1920 * d->nChannels;
+
+	    CUDA_CHECK_ERR();
+	}
+    } else {
+	// Allocate slot->image from cuda's device memory
+	for (s = 0; s < ctx->num_slot; ++s) {
+	    decoder_slot *slot = &d->slot[s];
+	    slot->bufobj = 0;
+
+	    cudaMalloc((void**)&slot->image.channel[0], 1920 * 1080 * d->nChannels);
+	    CUDA_CHECK_ERR();
+	    slot->image.pitch[0] = 1920 * d->nChannels;
 	}
     }
-    
+
     return K4W2_SUCCESS;
 err:
     return K4W2_ERROR;
@@ -165,6 +176,20 @@ color_nvjpeg_request(k4w2_decoder_t ctx, int slotNo, const void *src, int src_le
     decoder_slot *slot = &d->slot[slotNo % ctx->num_slot];
 
     CUDA_CHECK_ERR();
+
+    if (slot->bufobj) {
+	// Decode jpeg into OpenGL's buffer object
+	cudaGraphicsMapResources(1, &slot->gres, d->stream);
+	CUDA_CHECK_ERR();
+	cudaGraphicsResourceGetMappedPointer((void**)&slot->image.channel[0],
+					     NULL,
+					     slot->gres);
+	CUDA_CHECK_ERR();
+    } else {
+	// Decode jpeg into CUDA's device memory, which
+	// is allocated already in color_nvjpeg_open().
+    }
+
     nvjpegStatus_t res;
     res = nvjpegDecodePhaseOne(d->handle, slot->jpeg,
 			       h->image, src_length, d->outputfmt,
@@ -172,37 +197,29 @@ color_nvjpeg_request(k4w2_decoder_t ctx, int slotNo, const void *src, int src_le
     if (res) {
 	VERBOSE("nvjpegDecodePhaseOne() failed; %s", nvjpeg_strerro(res));
     }
-
     res = nvjpegDecodePhaseTwo(d->handle, slot->jpeg, d->stream);
     if (res) {
 	VERBOSE("nvjpegDecodePhaseTwo() failed; %s", nvjpeg_strerro(res));
     }
     slot->phase = 2;
 
-    decode_phase3_if_needed(d, slot);
 
-    if (slot->texture_id) {
-	if (NULL == d->copy_buffer) {
-	    // Update opengl's texture by using CUDA's opengl-interoperation feat.
-	    cudaArray_t array;	
-	    cudaGraphicsMapResources(1, &slot->gres, d->stream);
-	    cudaGraphicsSubResourceGetMappedArray(&array, slot->gres, 0,0);	
-	    cudaMemcpyToArray(array, 0, 0, slot->image.channel[0], 1920*1080*d->nChannels,cudaMemcpyDeviceToDevice);
-	    cudaGraphicsUnmapResources(1, &slot->gres, d->stream);
-	    CUDA_CHECK_ERR();
-	} else {
-	    // Update opengl's texture by using CPU.
-	    //
-	    // This is still required because opengl interoperation is not supported when the format of texture is GL_RGB8.
-	    //
-	    assert(d->copy_buffer);
-	    cudaMemcpy(d->copy_buffer, slot->image.channel[0], 1920*1080*d->nChannels, cudaMemcpyDeviceToHost);
-	    glTextureSubImage2D(slot->texture_id,
-				0,
-				0,0,
-				1920, 1080,
-				GL_RGB, GL_UNSIGNED_BYTE, d->copy_buffer);
-	}
+    if (slot->bufobj) {
+	// Updated OpenGL's texture
+	//
+	//
+	decode_phase3_if_needed(d, slot);
+	cudaGraphicsUnmapResources(1, &slot->gres, d->stream);
+	CUDA_CHECK_ERR();
+
+	// Update opengl's texture
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, slot->bufobj);
+	glTextureSubImage2D(slot->texture_id,
+			    0,
+			    0,0,
+			    1920, 1080,
+			    d->buffmt, GL_UNSIGNED_BYTE, NULL);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
     }
 
     return K4W2_SUCCESS;
@@ -216,8 +233,18 @@ color_nvjpeg_fetch(k4w2_decoder_t ctx, int slotNo, void *dst, int dst_length)
     decoder_nvjpeg * d = (decoder_nvjpeg *)ctx;
     decoder_slot *slot = &d->slot[slotNo % ctx->num_slot];
 
-    cudaMemcpy(dst, slot->image.channel[0], dst_length, cudaMemcpyDeviceToHost);
-    CUDA_CHECK_ERR();
+    if (slot->bufobj) {
+	// Decoded image is stored in OpenGL's buffer object.
+	glGetNamedBufferSubData(slot->bufobj,
+				0,
+				1920*1080*d->nChannels,
+				dst);
+    } else {
+	decode_phase3_if_needed(d, slot);
+	// Decoded image is stored in CUDA's device memory.
+	cudaMemcpy(dst, slot->image.channel[0], dst_length, cudaMemcpyDeviceToHost);
+	CUDA_CHECK_ERR();
+    }
     return K4W2_SUCCESS;
 }
 
@@ -251,13 +278,17 @@ color_nvjpeg_close(k4w2_decoder_t ctx)
 	for (s = 0; s < ctx->num_slot; ++s) {
 	    decoder_slot *slot = &d->slot[s];
 
-	    if (slot->gres) {
-		cudaGraphicsUnregisterResource(slot->gres);
-		CUDA_CHECK_ERR();
+	    if (slot->bufobj) {
+		if (slot->gres) {
+		    cudaGraphicsUnregisterResource(slot->gres);
+		    CUDA_CHECK_ERR();
+		}
+		glDeleteBuffers(1, &slot->bufobj);
+		glDeleteTextures(1, &slot->texture_id);
+	    } else {
+		if (slot->image.channel[0])
+		    cudaFree(slot->image.channel[0]);
 	    }
-
-	    if (slot->image.channel[0])
-		cudaFree(slot->image.channel[0]);
 	    if (slot->jpeg) {
 		nvjpegJpegStateDestroy(slot->jpeg);
 		slot->jpeg=0;
@@ -265,10 +296,6 @@ color_nvjpeg_close(k4w2_decoder_t ctx)
 	}
 	free(d->slot);
 	d->slot = NULL;
-    }
-    if (d && d->copy_buffer) {
-	free(d->copy_buffer);
-	d->copy_buffer = NULL;
     }
     if (d && d->handle) {
 	nvjpegDestroy(d->handle);
@@ -293,7 +320,7 @@ REGISTER_MODULE(k4w2_decoder_color_nvjpeg_init)
 }
 
 
-#endif /* #if ! defined HAVE_GPUJPEG */
+#endif /* #if ! defined HAVE_NVJPEG */
 
 
 /*
