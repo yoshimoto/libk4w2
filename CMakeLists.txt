@@ -45,10 +45,8 @@ find_package(GLEW)
 find_package(TurboJPEG)
 find_package(NVJPEG)
 find_package(OpenCV)
-
 pkg_check_modules(GLFW3 glfw3)
 pkg_check_modules(LIBGPUJPEG libgpujpeg)
-pkg_check_modules(LIBNVJPEG  libnvjpeg)
 
 k4w2_option(WITH_V4L2       "enable v4l2 driver"		ON IF PROJECT_OS_LINUX)
 k4w2_option(WITH_LIBUSB     "enable libusb-1.0 driver"		ON IF LIBUSB_1_FOUND)
@@ -94,6 +92,7 @@ endif()
 
 # Show configration 
 #
+status("")
 status(" ***** ")
 status("")
 status("       v4l2 driver : " WITH_V4L2        THEN Yes     ELSE No)
@@ -112,4 +111,5 @@ status("")
 status("      Install path : ${CMAKE_INSTALL_PREFIX}")
 status("")
 status(" ***** ")
+status("")
 
