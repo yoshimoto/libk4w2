@@ -81,6 +81,8 @@ color_nvjpeg_open(k4w2_decoder_t ctx, unsigned int type)
 
     if ( (type & K4W2_DECODER_TYPE_MASK) != K4W2_DECODER_COLOR)
 	goto err;
+    if ( type & K4W2_DECODER_DISABLE_CUDA )
+	goto err;
 
     nvjpegStatus_t res;
     res = nvjpegCreate(NVJPEG_BACKEND_DEFAULT, NULL, &d->handle);
