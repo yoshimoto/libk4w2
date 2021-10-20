@@ -132,7 +132,7 @@ main(int argc, const char *argv[])
 	    k4w2_decoder_fetch(decoder[COLOR], slot, rgb8U3.data, 1920*1080*3);
 
 	    if (is_rgb_colorspace)
-		cv::cvtColor(rgb8U3, rgb8U3, CV_RGB2BGR);
+		cv::cvtColor(rgb8U3, rgb8U3, cv::COLOR_RGB2BGR);
 
 	    cv::resize(rgb8U3, resized8U3, cv::Size(), 1, 1);
 

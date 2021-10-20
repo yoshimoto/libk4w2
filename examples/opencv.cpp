@@ -117,7 +117,7 @@ main(int argc, const char *argv[])
 	    cv::resize(rgb8U3, resized8U3, cv::Size(), 0.5, 0.5);
 
 	    if (is_rgb_colorspace)
-		cv::cvtColor(resized8U3, resized8U3, CV_RGB2BGR);
+		cv::cvtColor(resized8U3, resized8U3, cv::COLOR_RGB2BGR);
 	    cv::imshow("rgb", resized8U3);
 
 	    last_ptr[COLOR] = NULL;
