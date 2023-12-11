@@ -258,7 +258,6 @@ processPixelStage2(int x, int y,
     float ir_sum = m0[1] + m1[1] + m2[1];
 
     float phase;
-    {
 	float ir_min = MIN( MIN(m0[1], m1[1]), m2[1]);
 
 	if (ir_min < params->individual_ab_threshold || ir_sum < params->ab_threshold)
@@ -333,7 +332,6 @@ processPixelStage2(int x, int y,
 	    t10 *= mask3;
 	    phase = 1 /*(modeMask & 2) != 0*/ ? t11 : t10;
 	}
-    }
 
     // this seems to be the phase to depth mapping :)
     float zmultiplier = z_table[offset];
@@ -360,14 +358,11 @@ processPixelStage2(int x, int y,
 	*ir_sum_out = ir_sum;
     }
 
-    /* ir
-     * *ir_out = std::min((m1[2]) * ab_output_multiplier, 65535.0f);
-     * ir avg
+//     *ir_out = MIN((m1[2]) *  params->ab_output_multiplier, 65535.0f);
      *ir_out = MIN((m0[2] + m1[2] + m2[2]) * 0.3333333f * params->ab_output_multiplier, 65535.0f);
-     ir_out[0] = std::min(m0[2] * ab_output_multiplier, 65535.0f);
-     ir_out[1] = std::min(m1[2] * ab_output_multiplier, 65535.0f);
-     ir_out[2] = std::min(m2[2] * ab_output_multiplier, 65535.0f);
-    */
+//     ir_out[0] = MIN(m0[2] *  params->ab_output_multiplier, 65535.0f);
+//     ir_out[1] = MIN(m1[2] *  params->ab_output_multiplier, 65535.0f);
+//     ir_out[2] = MIN(m2[2] *  params->ab_output_multiplier, 65535.0f);
 }
 
 static int
@@ -502,7 +497,7 @@ depth_cpu_fetch(k4w2_decoder_t ctx, int slot, void *dst, int dst_length)
     const float *work = (float*)d->work[slot];
 
 
-    float *dst_i = (dst_length == 424*512*sizeof(float)*2)?(float*)dst + 424*512:NULL;
+    float *dst_i = (dst_length == 424*512*sizeof(float)*2)?((float*)dst + (424*512)):NULL;
     float *dst_d = (float*)dst;
 
     int y;
