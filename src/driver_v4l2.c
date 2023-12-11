@@ -19,7 +19,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-
+#include <string.h>
 #include <poll.h>
 
 #include <string.h> /* strerror() */
@@ -72,7 +72,7 @@ static int xioctl(int fh, int request, void *arg)
 
     do {
 	r = ioctl(fh, request, arg);
-    } while (-1 == r && EINTR == errno);
+    } while (-1 == r);
 
     return r;
 }
@@ -98,7 +98,7 @@ static int read_frame(Camera *cam, k4w2_callback_t callback, void *userdata)
 	    /* fall through */
 
 	default:
-	    ABORT("VIDIOC_DQBUF");
+	    printf("%d \n",errno);
 	}
     }
 

@@ -127,7 +127,7 @@ main(int argc, const char *argv[])
 	    k4w2_decoder_request(decoder[DEPTH], slot, last_ptr[DEPTH], last_len[DEPTH]);
 	    k4w2_decoder_fetch(decoder[DEPTH], slot, tmpbuf, 512*424*2*sizeof(float));
 
-	    cv::imshow("depth", depth32F1/ 4500.f);
+	    cv::imshow("depth", depth32F1/4500.f);
 
 	    cv::imshow("ir", ir32F1/50000.f);
 

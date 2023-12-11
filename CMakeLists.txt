@@ -7,7 +7,7 @@ include (SetupDirectories)
 include (libk4w2util)
 include (FindPkgConfig)
 include (FindOpenMP)
-include (FindOpenCL)
+#include (FindOpenCL)
 include (CheckFunctionExists)
 
 
